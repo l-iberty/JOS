@@ -22,13 +22,13 @@ $(OBJDIR)/boot/lib.o: $(BOOT_SRCDIR)/lib.asm
 # -S         Do not copy relocation and symbol information from the source file.
 # -O binary  generate a raw binary file
 # -j         section pattern
-$(OBJDIR)/boot/boot.bin: $(BOOT_OBJS)
+$(OBJDIR)/boot/boot: $(BOOT_OBJS)
 	$(LD) $(LDFLAGS) $^ -o $@.out
 	$(OBJDUMP) -S $@.out >$@.objdump
 	$(OBJCOPY) -S -O binary -j .text $@.out $@
 	$(PERL) $(BOOT_SRCDIR)/sign.pl $@
 
-$(OBJDIR)/boot/boot.img: $(OBJDIR)/boot/boot.bin
+$(OBJDIR)/boot/boot.img: $(OBJDIR)/boot/boot
 	dd if=/dev/zero of=$@~ count=10000 2>/dev/null
 	dd if=$< of=$@~ conv=notrunc 2>/dev/null
 	mv $@~ $@

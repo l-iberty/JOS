@@ -15,6 +15,22 @@
  *
  *  * The kernel image must be in ELF format.
  *
+ * ┌───────────────┐
+ * │               │
+ * │   sector 0    │  ---->   boot sector
+ * │               │
+ * ├───────────────┤┈┈┈┈┈┈┈┈┈┈
+ * │               │        |
+ * │   sector 1    │        |
+ * │               │        v
+ * ├───────────────┤      kernel
+ * │               │
+ * │   sector 2    │
+ * │               │
+ * ├───────────────┤
+ * │               │
+ * │               │
+ *
  * BOOT UP STEPS
  *  * when the CPU boots it loads the BIOS into memory and executes it
  *
@@ -75,27 +91,6 @@ void waitdisk() {
 
 // Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
 // Might copy more than asked
-//
-//  ┌───────────────┐
-//  │               │
-//  │   sector 0    │  ---->   boot sector
-//  │               │
-//  ├───────────────┤┈┈┈┈┈┈┈┈┈┈
-//  │               │        |
-//  │   sector 1    │        |
-//  │               │        v
-//  ├───────────────┤      kernel
-//  │               │
-//  │   sector 2    │
-//  │               │
-//  ├───────────────┤
-//  │               │
-//  │               │
-//
-//
-//
-//
-//
 void readseg(uint32_t pa, uint32_t count, uint32_t offset) {
   uint32_t end_pa, sector;
 

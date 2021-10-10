@@ -1,128 +1,39 @@
-# Lab1-1
+# Lab1-2
 
-## 前言
-MIT6.828的lab已经把整个框架搭建好了，你甚至不需要知道如何制作引导盘，直接按照实验手册一键`make`就OK了，完全没有从零开始写一个 OS 的乐趣。而且6.828使用的汇编语言是 AT&T 格式，还有大量可读性极差的C内联汇编，我很不喜欢，所以我决定使用 Intel 格式汇编重写相关部分。
+准备从 bootloader 跳入内核。
 
-下面我将根据我编写[libertyOS](http://github.com/l-iberty/libertyOS)积累的经验，从零开始搭建6.828的JOS。
+首先要完善`bootmain`，从6.828抄过来即可。由于需要用到几个端口I/O函数，所以我刚开始打算在`boot/lib.asm`直接用汇编进行实现（我无法忍受GNU内联汇编），然后在`boot/main.c`里调用。
 
-## 工具
-除了6.828实验指导里要求安装的工具外，还需要汇编器nasm和虚拟机bochs (bochs调试OS时你可以查看`GDT`、`CR0`、`CR3`等无法在gdb远程调试时查看的内容)。
-
-安装nasm:
-```sh
-$ sudo apt-get install nasm
+`bootmain`的任务把 ELF 格式的 kernel 加载到物理地址`0x10000`处的内存，然后定位到 kernel 代码段入口地址并跳转过去。那么得先有一个 kernel 的雏形，也就是`kernel/entry.asm`：
 ```
+global _start
 
-安装bochs:
-- 下载：[https://bochs.sourceforge.io/](https://bochs.sourceforge.io/)，我使用的版本是2.6.8
-- 安装bochs依赖：
-```sh
-$ sudo apt-get install -y libx11-dev libxrandr-dev xorg-dev libgtk2.0-dev
-```
-- 编译安装：
-```sh
-$ tar zxf bochs-2.6.8.tar.gz
-$ cd bochs-2.6.8
-$ ./configure --enable-debugger --enable-disasm
-$ make
-$ sudo make install
-```
-
-## 启动盘的制作
-### 编译
-- `boot/boot.asm`
-按照 NASM 汇编语法把6.828的`boot/boot.S`抄过来 -> `boot/boot.asm`。要点：
-1. 导出`boot/boot.asm`的代码段入口`start`供链接器识别：`global start`
-2. 导入位于`boot/main.c`外部符号`bootmain`：`extern bootmain`
-3. 编译为ELF二进制文件`obj/boot/boot.o`
-
-- `boot/main.c`
-写一个函数`bootmain`，函数体先空着。编译为i386架构的ELF二进制文件`obj/boot/main.o`
-
-### 链接
-把`obj/boot/boot.o`和`obj/boot/main.o`链接成`obj/boot/boot.out`。链接器选项：
-1. `-m elf_i386`：i386架构的ELF
-2. `-N`：Set the text and data sections to be readable and writable.
-3. `-e start`：代码段入口为`boot/boot.asm`导出的`start`
-4. `-Ttext 0x7C00`：`0x7c00`是加载引导扇区的物理基地址，PC会从这里开始执行引导代码。链接器进行重定位的时候会把`0x7c00`作为基地址，保证代码中与地址相关的部分不会出错。
-
-### 引导扇区
-我们的目标是制作一个512字节的引导扇区，终结符`0xAA55`告诉PC这是引导扇区。目前，引导扇区的代码位于`obj/boot/boot.out`，需要使用`objcopy`把代码段拷贝出来，保存为`obj/boot/boot`。然后使用6.828提供的脚本`boot/sign.pl`将它填充为512字节，末尾是引导扇区的标志`0xAA55`，如下：
-```
-00000000: FA FC 31 C0 8E D8 8E C0 8E D0 E4 64 A8 02 75 FA    z|1@.X.@.Pdd(.uz
-00000010: B0 D1 E6 64 E4 64 A8 02 75 FA B0 DF E6 60 0F 01    0Qfddd(.uz0_f`..
-00000020: 16 72 7C 0F 20 C0 66 83 C8 01 0F 22 C0 66 EA 40    .r|..@f.H.."@fj@
-00000030: 7C 00 00 08 00 90 90 90 90 90 90 90 90 90 90 90    |...............
-00000040: 66 B8 10 00 8E D8 8E C0 8E E8 8E E0 8E D0 BC 00    f8...X.@.h.`.P<.
-00000050: 7C 00 00 E8 20 00 00 00 EB FE 00 00 00 00 00 00    |..h....k~......
-00000060: 00 00 FF FF 00 00 00 98 CF 00 FF FF 00 00 00 92    ........O.......
-00000070: CF 00 17 00 5A 7C 00 00 55 89 E5 83 EC 08 E8 0D    O...Z|..U.e.l.h.
-00000080: 00 00 00 EB FE 66 90 66 90 66 90 66 90 66 90 90    ...k~f.f.f.f.f..
-00000090: B4 0C B0 4B BB 4E 80 0B 00 66 89 03 C3 00 00 00    4.0K;N...f..C...
-000000a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000000b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000000c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000000d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000000e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000000f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000100: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000110: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000120: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000130: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000140: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000150: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000160: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000170: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000180: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-00000190: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
-000001f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 55 AA    ..............U*
-```
-
-### 启动盘
-JOS将从硬盘启动，所以需要使用`dd`制作一个硬盘映像`obj/boot/boot.img`，再把我们的引导扇区`obj/boot/boot`拷贝到第一个扇区。参见`boot/Makefile.boot`：
-```Makefile
-$(OBJDIR)/boot/boot.img: $(OBJDIR)/boot/boot
-	dd if=/dev/zero of=$@~ count=10000 2>/dev/null
-	dd if=$< of=$@~ conv=notrunc 2>/dev/null
-	mv $@~ $
-```
-首先用0填充一个10000个磁盘块（10000×512字节）的文件`boot.img`，再把准备好的`boot`拷贝进去。这样，`boot.img`就成为了JOS的启动盘，可以用qemu或bochs启动。qemu的启动参数见`Makefile`的`QEMUOPTS`变量，bochs的配置文件是`bochsrc`。
-
-### 留下我们的足迹
-当JOS运行到`bootmain`的时候让他在屏幕上打印一个红色的`K`。在`boot/lib.asm`里写一个函数`__lib_putc`并导出：
-```
-global __lib_putc
-
-__lib_putc:
+[SECTION .text]
+_start:
     mov  ah, 0Ch
     mov  al, 'K'
     mov  ebx, 0B8000h + (80*0+39)*2
     mov  [ebx], ax
-    ret
+    jmp $
 ```
 
-接着是`boot/main.c`：
-```c
-extern void __lib_putc();
+我们需要把它编译链接成可执行的 ELF 二进制文件，所以需要定义代码段`.text`并导出`_start`符号供链接器识别。6.828通过链接脚本`kern/kernel.ld`指定的 kernel 链接地址(link address, the *entry point* of the program)为`0x100000`；简单起见，我直接在链接选项中`-Ttext 0x100000`。
 
-void bootmain() {
-  __lib_putc();
-  for (;;)
-    ;
-}
+编译链接后得到内核`obj/kernel/kernel`。现在需要将其放进 JOS 的启动盘`obj/jos.img`，位于引导扇区之后，详见`kernel/Makefile.kernel`：
+```Makefile
+$(OBJDIR)/jos.img: $(OBJDIR)/kernel/kernel $(OBJDIR)/boot/boot
+	  dd if=/dev/zero of=$@~ count=10000 2>/dev/null
+	  dd if=$(OBJDIR)/boot/boot of=$@~ conv=notrunc 2>/dev/null
+	  dd if=$(OBJDIR)/kernel/kernel of=$@~ seek=1 conv=notrunc 2>/dev/null
+	  mv $@~ $@
 ```
+`dd`命令的`seek=1`参数：写入位置的块偏移为1，也就是第2个扇区。
 
-（编译链接的方式见`Makefile`）
+一切准备就绪，然而`make`出错了！bootloader 的代码大小超过了510字节，无法放进引导扇区！为了削减代码尺寸，我进行了如下更改：
+1. 编译`boot/main.c`时加上`-Os`优化选项，尽量降低代码的大小，见`boot/Makefile.boot`；
+2. 删除`boot/boot.asm`里面的`ALIGN`伪指令，因为我发现为了对齐，nasm会在代码中间添加一些`nop`；
+3. **最重要的一点**，我的`boot/main.c`对`boot/lib.asm`里的函数的调用是无法内联展开的，所以生成了大量的C语言函数调用所需的指令。无奈之下我把6.828以内联汇编写的`static inline`函数抄了过来，放在`include/x86.h`里面。为了区别于我写在`boot/lib.asm`的几个，我给它们加上了`x86_`前缀，以后也不会再使用它们了。至于`boot/lib.asm`就暂时放在那儿，将来有需要时再做调整。
 
-现在你可以按照6.828的实验指导利用qemu-gdb进行单步跟踪，也可以用bochs进行最高权限的调试，例如查看`GDT`：
+现在`make`可以成功了。启动JOS，屏幕上红色的"K"说明我们成功从 bootloader 跳转进了 kernel：
 
-![](imgs/gdt.png)
-
-最后是我们留下的足迹，红色的`K`：
-
-![](imgs/bochs.png)
+<img src="imgs/jos_start.png" width=700/>

@@ -9,7 +9,6 @@ extern bootmain
 
 global start
 
-ALIGN 16
 [BITS 16]                         ; Assemble for 16-bit mode
 start:
   cli                             ; Disable interrupts
@@ -53,8 +52,7 @@ seta20.2:
   ; Switches processor into 32-bit mode.
   jmp    dword SELECTOR_FLATC:LABEL_PROT_CSEG
 
-ALIGN 32
-[BITS 32]
+[BITS 32]                         ; Assemble for 32-bit mode
 LABEL_PROT_CSEG:
   ; Set up the protected-mode data segment registers
   mov    ax, SELECTOR_FLATRW

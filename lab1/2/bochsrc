@@ -21,4 +21,4 @@ mouse: enabled=0
 # enable key mapping, using US layout as default
 keyboard: keymap=$BXSHARE/keymaps/x11-pc-us.map
 
-ata0-master: type=disk, path="obj/boot/boot.img", mode=flat
+ata0-master: type=disk, path="obj/jos.img", mode=flat

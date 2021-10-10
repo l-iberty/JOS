@@ -146,6 +146,4 @@
 					      (lba_highest & 0xF) | 0xA0)
 
 
-#endif /* _ORANGES_HD_H_ */
-
 #endif /* _JOS_HD_H_ */

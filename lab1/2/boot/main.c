@@ -1,14 +1,13 @@
-#include "hd.h"
+#include <include/types.h>
+#include <include/hd.h>
+#include <include/lib.h>
 
-extern void __lib_putc();
-extern uint8_t inb(uint16_t port);
-extern void outb(uint16_t port, uint8_t byte);
+#define SECSIZE 512
 
 void waitdisk();
 void readsect(void *dst, uint32_t offset);
 
 void bootmain() {
-  __lib_putc();
 }
 
 void waitdisk() {
@@ -33,5 +32,5 @@ void readsect(void *dst, uint32_t offset) {
   // wait for disk to be ready
 
   // read a sector
-  insl(REG_DATA, dst, SECSIZE/4);
+  insd(REG_DATA, dst, SECSIZE/4);
 }

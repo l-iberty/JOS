@@ -9,16 +9,17 @@ OBJDUMP = objdump
 PERL    = perl
 QEMU    = qemu-system-i386
 
-CFLAGS  = -fno-builtin -fno-stack-protector -nostdinc -m32 -gstabs
+CFLAGS  = -fno-builtin -fno-stack-protector -nostdinc -m32 -I. -gstabs
 ASFLAGS = -f elf
-LDFLAGS = -m elf_i386 -N -e start -Ttext 0x7C00
+LDFLAGS = -m elf_i386
 
 GDBPORT = 1234
-QEMUOPTS = -drive file=$(OBJDIR)/boot/boot.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS = -drive file=$(OBJDIR)/jos.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
 
 all:
 
 include boot/Makefile.boot
+include kernel/Makefile.kernel
 
 clean:
 	rm -r $(OBJDIR)

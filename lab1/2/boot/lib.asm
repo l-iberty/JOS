@@ -55,54 +55,27 @@ outd:
 ;
 ; void insb(uint16_t port, void *addr, int cnt)
 insb:
-    push  ebp
-    mov   ebp, esp
-    push  edx
-    push  esi
-    push  ecx
-    mov   edx, [ebp+8]  ; port
-    mov   edi, [ebp+12] ; addr
-    mov   ecx, [ebp+16] ; cnt
+    mov   edx, [ebp+4]  ; port
+    mov   edi, [ebp+8]  ; addr
+    mov   ecx, [ebp+12] ; cnt
     cld
     rep   insb ; Input byte from I/O port specified in DX into memory location specified in ES:(E)DI
-    pop   ecx
-    pop   edi
-    pop   edx
-    pop   ebp
     ret
 
 ; void insw(uint16_t port, void *addr, int cnt)
 insw:
-    push  ebp
-    mov   ebp, esp
-    push  edx
-    push  esi
-    push  ecx
-    mov   edx, [ebp+8]  ; port
-    mov   edi, [ebp+12] ; addr
-    mov   ecx, [ebp+16] ; cnt
+    mov   edx, [ebp+4]  ; port
+    mov   edi, [ebp+8] ; addr
+    mov   ecx, [ebp+12] ; cnt
     cld
     rep   insw ; Input word from I/O port specified in DX into memory location specified in ES:(E)DI
-    pop   ecx
-    pop   edi
-    pop   edx
-    pop   ebp
     ret
 
 ; void insd(uint16_t port, void *addr, int cnt)
 insd:
-    push  ebp
-    mov   ebp, esp
-    push  edx
-    push  esi
-    push  ecx
-    mov   edx, [ebp+8]  ; port
-    mov   edi, [ebp+12] ; addr
-    mov   ecx, [ebp+16] ; cnt
+    mov   edx, [ebp+4]  ; port
+    mov   edi, [ebp+8] ; addr
+    mov   ecx, [ebp+12] ; cnt
     cld
     rep   insd ; Input dword from I/O port specified in DX into memory location specified in ES:(E)DI
-    pop   ecx
-    pop   edi
-    pop   edx
-    pop   ebp
     ret

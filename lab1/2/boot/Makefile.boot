@@ -1,16 +1,16 @@
 BOOT_SRCDIR = boot
 
-BOOT_OBJS = $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o $(OBJDIR)/boot/lib.o
+BOOT_OBJS = $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o
 
 $(OBJDIR)/boot/boot.o: $(BOOT_SRCDIR)/boot.asm
 	mkdir -p $(@D)
 	$(AS) $(ASFLAGS) -I$(BOOT_SRCDIR)/ $^ -o $@
 
+# gcc options:
+# -Os  Optimize for size.  -Os enables all -O2 optimizations that do not typically
+#      increase code size. It also performs further optimizations designed to reduce code size.
 $(OBJDIR)/boot/main.o: $(BOOT_SRCDIR)/main.c
-	$(CC) $(CFLAGS) $^ -c -o $@
-
-$(OBJDIR)/boot/lib.o: $(BOOT_SRCDIR)/lib.asm
-	$(AS) $(ASFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -Os -c -o $@
 
 # ld options:
 # -N  Set the text and data sections to be readable and writable.

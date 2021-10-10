@@ -7,9 +7,9 @@ all: $(OBJDIR)/jos.img
 $(OBJDIR)/kernel/entry.o: $(KERNEL_SRCDIR)/entry.asm
 	mkdir -p $(@D)
 	$(AS) $(ASFLAGS) $< -o $@
-    
+
 $(OBJDIR)/kernel/kernel: $(OBJDIR)/kernel/entry.o
-	$(LD) $(LDFLAGS) $< -o $@
+	$(LD) $(LDFLAGS) -Ttext 0x100000 $< -o $@
 
 $(OBJDIR)/jos.img: $(OBJDIR)/kernel/kernel $(OBJDIR)/boot/boot
 	dd if=/dev/zero of=$@~ count=10000 2>/dev/null

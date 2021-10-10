@@ -9,7 +9,8 @@ OBJDUMP = objdump
 PERL    = perl
 QEMU    = qemu-system-i386
 
-CFLAGS  = -fno-builtin -fno-stack-protector -nostdinc -m32 -I. -gstabs
+CFLAGS  = -fno-builtin -fno-stack-protector -nostdinc -I$(TOP)
+CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
 ASFLAGS = -f elf
 LDFLAGS = -m elf_i386
 

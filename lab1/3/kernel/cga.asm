@@ -1,10 +1,11 @@
 global cga_putc
 global cga_print
+global CGA_PRINT_POS
 
 %include "include/cga.inc"
 
 [SECTION .data]
-    CGA_PRINT_POS   dd  0
+    CGA_PRINT_POS   dw  0
 
 [SECTION .text]
 
@@ -20,7 +21,7 @@ cga_putc:
     jmp   .2
 .1:
     mov   [edi+CGA_BASE], ax
-    add   dword [CGA_PRINT_POS], 2
+    add   word [CGA_PRINT_POS], 2
 .2:
     ret
 

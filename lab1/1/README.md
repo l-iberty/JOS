@@ -1,7 +1,7 @@
 # Lab1-1
 
 ## 前言
-MIT6.828的lab已经把整个框架搭建好了，你甚至不需要知道如何制作引导盘，直接按照实验手册一键`make`就OK了，完全没有从零开始写一个 OS 的乐趣。而且6.828使用的汇编语言是 AT&T 格式，还有大量可读性极差的C内联汇编，我很不喜欢，所以我决定使用 Intel 格式汇编重写相关部分。
+MIT6.828的lab已经把整个框架搭建好了，你甚至不需要知道如何制作引导盘，直接按照实验手册一键`make`就OK了，完全没有从零开始写一个 OS 的乐趣。而且6.828使用的汇编语言是 AT&T 格式，还有大量可读性极差的GNU内联汇编，我很不喜欢，所以我决定使用 Intel 格式汇编重写相关部分。
 
 下面我将根据我编写[libertyOS](http://github.com/l-iberty/libertyOS)积累的经验，从零开始搭建6.828的JOS。
 
@@ -44,7 +44,7 @@ $ sudo make install
 1. `-m elf_i386`：i386架构的ELF
 2. `-N`：Set the text and data sections to be readable and writable.
 3. `-e start`：代码段入口为`boot/boot.asm`导出的`start`
-4. `-Ttext 0x7C00`：`0x7c00`是加载引导扇区的物理基地址，PC会从这里开始执行引导代码。链接器进行重定位的时候会把`0x7c00`作为基地址，保证代码中与地址相关的部分不会出错。
+4. `-Ttext 0x7C00`：`0x7C00`是加载引导扇区的物理基地址，PC会从这里开始执行引导代码，所以需要把`0x7C00`同时作为链接地址(link address, the *entry point* of the program)。
 
 ### 引导扇区
 我们的目标是制作一个512字节的引导扇区，终结符`0xAA55`告诉PC这是引导扇区。目前，引导扇区的代码位于`obj/boot/boot.out`，需要使用`objcopy`把代码段拷贝出来，保存为`obj/boot/boot`。然后使用6.828提供的脚本`boot/sign.pl`将它填充为512字节，末尾是引导扇区的标志`0xAA55`，如下：
@@ -84,12 +84,12 @@ $ sudo make install
 ```
 
 ### 启动盘
-JOS将从硬盘启动，所以需要使用`dd`制作一个硬盘映像`obj/boot/boot.img`，再把我们的引导扇区`obj/boot/boot`拷贝到第一个扇区。参见`boot/Makefile.boot`：
+JOS将从硬盘启动，所以需要使用`dd`制作一个硬盘映像`obj/boot/boot.img`，再把`obj/boot/boot`拷贝到第一个扇区。参见`boot/Makefile.boot`：
 ```Makefile
 $(OBJDIR)/boot/boot.img: $(OBJDIR)/boot/boot
-	dd if=/dev/zero of=$@~ count=10000 2>/dev/null
-	dd if=$< of=$@~ conv=notrunc 2>/dev/null
-	mv $@~ $
+    dd if=/dev/zero of=$@~ count=10000 2>/dev/null
+    dd if=$< of=$@~ conv=notrunc 2>/dev/null
+    mv $@~ $
 ```
 首先用0填充一个10000个磁盘块（10000×512字节）的文件`boot.img`，再把准备好的`boot`拷贝进去。这样，`boot.img`就成为了JOS的启动盘，可以用qemu或bochs启动。qemu的启动参数见`Makefile`的`QEMUOPTS`变量，bochs的配置文件是`bochsrc`。
 

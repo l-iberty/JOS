@@ -1,0 +1,42 @@
+KERNEL_SRCDIR := kernel
+LIB_SRCDIR := lib
+
+KERNEL_OBJS := $(OBJDIR)/kernel/entry.o $(OBJDIR)/kernel/lib.o $(OBJDIR)/kernel/cga.o
+KERNEL_OBJS += $(OBJDIR)/kernel/printf.o $(OBJDIR)/kernel/test.o
+
+LIB_OBJS := $(OBJDIR)/lib/vsprintf.o $(OBJDIR)/lib/string.o
+
+all: $(OBJDIR)/jos.img
+
+$(OBJDIR)/kernel/entry.o: $(KERNEL_SRCDIR)/entry.asm
+	mkdir -p $(@D)
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJDIR)/kernel/lib.o: $(KERNEL_SRCDIR)/lib.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJDIR)/kernel/cga.o: $(KERNEL_SRCDIR)/cga.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJDIR)/kernel/printf.o: $(KERNEL_SRCDIR)/printf.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/kernel/test.o: $(KERNEL_SRCDIR)/test.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/lib/vsprintf.o: $(LIB_SRCDIR)/vsprintf.c
+	mkdir -p $(@D)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/lib/string.o: $(LIB_SRCDIR)/string.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OBJDIR)/kernel/kernel: $(KERNEL_OBJS) $(LIB_OBJS)
+	$(LD) $(LDFLAGS) -Ttext 0x100000 $^ -o $@
+	$(OBJDUMP) -S $@ >$@.objdump
+
+$(OBJDIR)/jos.img: $(OBJDIR)/kernel/kernel $(OBJDIR)/boot/boot
+	dd if=/dev/zero of=$@~ count=10000 2>/dev/null
+	dd if=$(OBJDIR)/boot/boot of=$@~ conv=notrunc 2>/dev/null
+	dd if=$(OBJDIR)/kernel/kernel of=$@~ seek=1 conv=notrunc 2>/dev/null
+	mv $@~ $@

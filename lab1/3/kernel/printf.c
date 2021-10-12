@@ -2,7 +2,7 @@
 #include <include/string.h>
 #include <include/stdarg.h>
 
-extern void cga_print(const char*);
+#include <kernel/console.h>
 
 void printf(const char *fmt, ...) {
   va_list ap;
@@ -17,5 +17,5 @@ void vprintf(const char *fmt, va_list ap) {
 
   vsprintf(buf, fmt, ap);
 
-  cga_print(buf);
+  cons_print(buf);
 }

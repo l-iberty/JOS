@@ -19,8 +19,8 @@ QEMUOPTS := -drive file=$(OBJDIR)/jos.img,index=0,media=disk,format=raw -serial 
 
 all:
 
-include boot/Makefile.boot
-include kernel/Makefile.kernel
+include boot/Makefile
+include kernel/Makefile
 
 clean:
 	rm -r $(OBJDIR)

@@ -2,6 +2,7 @@
 #include <include/hd.h>
 #include <include/x86.h>
 #include <include/elf.h>
+#include <include/memlayout.h>
 
 /**********************************************************************
  * This a dirt simple boot loader, whose sole job is to boot
@@ -77,7 +78,7 @@ void bootmain() {
 
   // call the entry point from the ELF header
   // note: does not return!
-  ((EntryFn) (ELFHDR->e_entry))();
+  ((EntryFn) (ELFHDR->e_entry - KERNBASE))();
 
 bad:
   asm volatile("hlt");

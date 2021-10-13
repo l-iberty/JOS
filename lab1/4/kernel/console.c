@@ -1,6 +1,6 @@
-#include <include/lib.h>
-#include <include/types.h>
+#include <include/string.h>
 #include <include/memlayout.h>
+#include <include/lib.h>
 #include <include/kbdreg.h>
 
 #include <kernel/console.h>
@@ -43,6 +43,18 @@ static void cga_putc(int c) {
       c |= attr;
       crt_buf[crt_pos++] = c;
       break;
+  }
+  
+  // What is the purpose of this?
+  // 当显示范围超出当前屏幕大小时进行“滚屏”
+  if (crt_pos >= CRT_SIZE) {
+    int i;
+
+    memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
+		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++) {
+      crt_buf[i] = 0x0700 | ' '; // 黑底(00)灰色(07)的空格' '. 颜色属性不重要, 只要是空格' '就行了.
+    }
+    crt_pos -= CRT_COLS;
   }
 
   // move cursor forward

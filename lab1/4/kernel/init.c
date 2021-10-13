@@ -7,43 +7,26 @@
 #include <include/lib.h>
 
 #include <kernel/console.h>
+#include <kernel/monitor.h>
 
-#define ELFHDR    ((struct Elf *) 0x10000) // scratch space
+#define ELFHDR    ((struct Elf *) 0x10000)
 
 void i386_init() {
-  extern char _start[], etext[], edata[], end[];
-  extern char entry_pgdir[];
-  extern char entry_pgtable[];
-  extern int entry_pgdir_size, entry_pgtable_size;
+  extern char edata[], end[];
 
-  struct Proghdr *ph, *eph;
-  int i;
+  // Before doing anything else, complete the ELF loading process.
+  // Clear the uninitialized global data (BSS) section of our program.
+  // This ensures that all static/global variables start out zero.
+  memset(edata, 0, end - edata);
 
-  ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
-  eph = ph + ELFHDR->e_phnum;
-
+  // Initialize the console.
+  // Can't call cprintf until after we do this!
   cons_init();
 
-  /*printf("\nSpecial kernel symbols:\n");
-  printf("  _start  %x (virt)  %x (phys)\n", _start, _start - KERNBASE);
-  printf("  etext   %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
-  printf("  edata   %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
-  printf("  end     %x (virt)  %x (phys)\n", end, end - KERNBASE);
-  for (i = 1; ph < eph; ph++, i++) {
-    printf("segment %d: pa = %x  va = %x  memsz = %x\n", i, ph->p_pa, ph->p_va, ph->p_memsz);
-  }
-  printf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - _start, 1024) / 1024);
+  printf("6828 decimal is %o octal!\n", 6828);
 
-  printf("\nInfomation of paging:\n");
-  printf("  pgdir   addr:  %x (virt)  %x (phys)\n", entry_pgdir, entry_pgdir - KERNBASE);
-  printf("  pgtable addr:  %x (virt)  %x (phys)\n", entry_pgtable, entry_pgtable - KERNBASE);
-  printf("  sizeof pgdir:   %d\n", entry_pgdir_size);
-  printf("  sizeof pgtable: %d\n", entry_pgtable_size);
-  */
-
-  char *cmd;
-  for (;;) {
-    cmd = readline("K> ");
-    printf("%s\n", cmd);
+  // Drop into the kernel monitor.
+  while (1) {
+    monitor(NULL);
   }
 }

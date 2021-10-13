@@ -24,7 +24,7 @@ void i386_init() {
 
   cons_init();
 
-  printf("\nSpecial kernel symbols:\n");
+  /*printf("\nSpecial kernel symbols:\n");
   printf("  _start  %x (virt)  %x (phys)\n", _start, _start - KERNBASE);
   printf("  etext   %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
   printf("  edata   %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
@@ -39,7 +39,11 @@ void i386_init() {
   printf("  pgtable addr:  %x (virt)  %x (phys)\n", entry_pgtable, entry_pgtable - KERNBASE);
   printf("  sizeof pgdir:   %d\n", entry_pgdir_size);
   printf("  sizeof pgtable: %d\n", entry_pgtable_size);
+  */
 
-  for (;;)
-    /* do nothing */ ;
+  char *cmd;
+  for (;;) {
+    cmd = readline("K> ");
+    printf("%s\n", cmd);
+  }
 }

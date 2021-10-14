@@ -28,6 +28,12 @@ static void cga_putc(int c) {
   int attr = (CGA_ATTR_BLACK | CGA_ATTR_LIGHTCYAN) << 8;
 
   switch (c) {
+    case '\b':
+      if (crt_pos > 0) {
+        crt_pos--;
+        crt_buf[crt_pos] = ' ';
+      }
+      break;
     case '\n':
       crt_pos += CRT_COLS;
     case '\r':
@@ -44,7 +50,7 @@ static void cga_putc(int c) {
       crt_buf[crt_pos++] = c;
       break;
   }
-  
+
   // What is the purpose of this?
   // 当显示范围超出当前屏幕大小时进行“滚屏”
   if (crt_pos >= CRT_SIZE) {
@@ -52,7 +58,8 @@ static void cga_putc(int c) {
 
     memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++) {
-      crt_buf[i] = 0x0700 | ' '; // 黑底(00)灰色(07)的空格' '. 颜色属性不重要, 只要是空格' '就行了.
+      // crt_buf[i] = 0x0700 | ' '; // 黑底(00)灰色(07)的空格' '. 颜色属性不重要, 只要是空格' '就行了.
+      crt_buf[i] = ' ';
     }
     crt_pos -= CRT_COLS;
   }
@@ -136,9 +143,9 @@ static uint8_t shiftmap[256] = {
   NO,   NO,   NO,   NO,   NO,   NO,   NO,   '7',	// 0x40
   '8',  '9',  '-',  '4',  '5',  '6',  '+',  '1',
   '2',  '3',  '0',  '.',  NO,   NO,   NO,   NO,	// 0x50
-  [0xC7] = KEY_HOME,	      [0x9C] = '\n' /*KP_Enter*/,
+  [0xC7] = KEY_HOME,            [0x9C] = '\n' /*KP_Enter*/,
   [0xB5] = '/' /*KP_Div*/,      [0xC8] = KEY_UP,
-  [0xC9] = KEY_PGUP,	      [0xCB] = KEY_LF,
+  [0xC9] = KEY_PGUP,      [0xCB] = KEY_LF,
   [0xCD] = KEY_RT,	      [0xCF] = KEY_END,
   [0xD0] = KEY_DN,	      [0xD1] = KEY_PGDN,
   [0xD2] = KEY_INS,	      [0xD3] = KEY_DEL
@@ -148,18 +155,18 @@ static uint8_t shiftmap[256] = {
 
 static uint8_t ctlmap[256] = {
   NO,      NO,      NO,      NO,      NO,      NO,      NO,      NO,
-	NO,      NO,      NO,      NO,      NO,      NO,      NO,      NO,
+  NO,      NO,      NO,      NO,      NO,      NO,      NO,      NO,
   C('Q'),  C('W'),  C('E'),  C('R'),  C('T'),  C('Y'),  C('U'),  C('I'),
   C('O'),  C('P'),  NO,      NO,      '\r',    NO,      C('A'),  C('S'),
   C('D'),  C('F'),  C('G'),  C('H'),  C('J'),  C('K'),  C('L'),  NO,
   NO,      NO,      NO,      C('\\'), C('Z'),  C('X'),  C('C'),  C('V'),
   C('B'),  C('N'),  C('M'),  NO,      NO,      C('/'),  NO,      NO,
   [0x97] = KEY_HOME,
-  [0xB5] = C('/'),		[0xC8] = KEY_UP,
-  [0xC9] = KEY_PGUP,		[0xCB] = KEY_LF,
-  [0xCD] = KEY_RT,		[0xCF] = KEY_END,
-  [0xD0] = KEY_DN,		[0xD1] = KEY_PGDN,
-  [0xD2] = KEY_INS,		[0xD3] = KEY_DEL
+  [0xB5] = C('/'),      [0xC8] = KEY_UP,
+  [0xC9] = KEY_PGUP,    [0xCB] = KEY_LF,
+  [0xCD] = KEY_RT,      [0xCF] = KEY_END,
+  [0xD0] = KEY_DN,      [0xD1] = KEY_PGDN,
+  [0xD2] = KEY_INS,     [0xD3] = KEY_DEL
 };
 
 static uint8_t *charcode[4] = {
@@ -209,10 +216,11 @@ static int kbd_proc_data(void) {
 
   c = charcode[shift & (CTL | SHIFT)][data];
   if (shift & CAPSLOCK) {
-    if ('a' <= c && c <= 'z')
+    if ('a' <= c && c <= 'z') {
       c += 'A' - 'a';
-    else if ('A' <= c && c <= 'Z')
+    } else if ('A' <= c && c <= 'Z') {
       c += 'a' - 'A';
+    }
   }
 
   return c;

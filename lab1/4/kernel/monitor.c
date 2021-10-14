@@ -5,6 +5,7 @@
 #include <include/string.h>
 #include <include/memlayout.h>
 #include <include/elf.h>
+#include <include/lib.h>
 
 #include <kernel/console.h>
 #include <kernel/monitor.h>
@@ -23,6 +24,8 @@ struct Command {
 static struct Command commands[] = {
   { "help", "Display this list of commands", mon_help },
   { "kerninfo", "Display information about the kernel", mon_kerninfo },
+  { "paginginfo", "Display information about the paging", mon_paginginfo },
+  { "reboot", "Reboot the JOS", mon_reboot },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -30,16 +33,14 @@ static struct Command commands[] = {
 int mon_help(int argc, char **argv, struct Trapframe *tf) {
   int i;
 
-  for (i = 0; i < ARRAY_SIZE(commands); i++)
+  for (i = 0; i < ARRAY_SIZE(commands); i++) {
     printf("%s - %s\n", commands[i].name, commands[i].desc);
+  }
   return 0;
 }
 
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   extern char _start[], etext[], edata[], end[];
-  extern char entry_pgdir[];
-  extern char entry_pgtable[];
-  extern int entry_pgdir_size, entry_pgtable_size;
 
   struct Proghdr *ph, *eph;
   int i;
@@ -58,7 +59,15 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
     printf("segment %d: pa = %x  va = %x  memsz = %x\n", i, ph->p_pa, ph->p_va, ph->p_memsz);
   }
 
-  printf("\nInformation of paging:\n");
+  return 0;
+}
+
+int mon_paginginfo(int argc, char **argv, struct Trapframe *tf) {
+  extern char entry_pgdir[];
+  extern char entry_pgtable[];
+  extern int entry_pgdir_size, entry_pgtable_size;
+
+  printf("Information of paging:\n");
   printf("  pgdir   addr:  %x (virt)  %x (phys)\n", entry_pgdir, entry_pgdir - KERNBASE);
   printf("  pgtable addr:  %x (virt)  %x (phys)\n", entry_pgtable, entry_pgtable - KERNBASE);
   printf("  sizeof pgdir:   %d\n", entry_pgdir_size);
@@ -67,6 +76,12 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   return 0;
 }
 
+int mon_reboot(int argc, char **argv, struct Trapframe *tf) {
+  printf("Rebooting...");
+  outb(0x92, 0x03);
+
+  return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
@@ -99,8 +114,9 @@ static int runcmd(char *buf, struct Trapframe *tf) {
   // Lookup and invoke the command
   if (argc == 0) return 0;
   for (i = 0; i < ARRAY_SIZE(commands); i++) {
-    if (strcmp(argv[0], commands[i].name) == 0)
+    if (strcmp(argv[0], commands[i].name) == 0) {
       return commands[i].func(argc, argv, tf);
+    }
   }
   printf("Unknown command '%s'\n", argv[0]);
   return 0;

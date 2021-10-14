@@ -57,7 +57,7 @@ static void cga_putc(int c) {
     int i;
 
     memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
-		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++) {
+    for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++) {
       // crt_buf[i] = 0x0700 | ' '; // 黑底(00)灰色(07)的空格' '. 颜色属性不重要, 只要是空格' '就行了.
       crt_buf[i] = ' ';
     }

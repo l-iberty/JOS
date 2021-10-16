@@ -138,80 +138,8 @@ void mem_init() {
   page_init();
 
   check_page_free_list(1);
-  printf("check_page_free_list OK");
 }
 
-// --------------------------------------------------------------
-// Checking functions.
-// --------------------------------------------------------------
-
-//
-// Check that the pages on the page_free_list are reasonable.
-//
-static void check_page_free_list(bool only_low_memory) {
-  struct PageInfo *pp;
-  unsigned pdx_limit = only_low_memory ? 1 : NPDENTRIES; /* NPDENTRIES = 1024 */
-  int nfree_basemem = 0, nfree_extmem = 0;
-  char *first_free_page;
-
-  if (!page_free_list)
-    panic("'page_free_list' is a null pointer!");
-
-  if (only_low_memory) {
-    // Move pages with lower addresses first in the free
-    // list, since entry_pgdir does not map all pages.
-    struct PageInfo *pp1, *pp2;
-    struct PageInfo **tp[2] = {&pp1, &pp2};
-    for (pp = page_free_list; pp; pp = pp->pp_link) {
-      // page2pa(pp): (pp - pages) << PGSHIFT /* 得到 pp 这个 PageInfo 所描述的页的物理地址 */
-      // PDX(la): (la >> PDXSHIFT) & 0x3FF /* 得到线性地址 la 的页目录索引, 也就是 la 的高 10 bits */
-      // PDX(page2pa(pp)): 得到 pp 描述的页的物理地址的“页目录索引”, 即高 10 bits */
-      int pagetype = PDX(page2pa(pp)) >= pdx_limit; /* only_low_memory == true 时 pdx_limit = 1 */
-      // pagetype 是一个布尔值, 只能等于0或1.
-      // 页目录一共有 1024 项, 每一项指向一个页表, 每个页表能映射 4MB 虚拟内存, 1024 个页表共能映射 4GB 虚拟内存.
-      // 1024 个页表对应的页目录索引为 { 0, 1, 2, ... , 1023 }. 如果 PDX(page2pa(pp)) == 0, 就说明 pp 描述的
-      // 物理页地址属于 [0, 4MB) 这个范围, 那么 pagetype = 0; 如果 pp 描述的物理页地址在 4MB 之上, pagetype = 1.
-      *tp[pagetype] = pp;
-      tp[pagetype] = &pp->pp_link;
-      // 由于 page_free_list 的方向是由高地址页指向低地址页, 所以 for 循环结束后 *tp[0] 也就是 pp1 指向的
-      // PageInfo 所描述的物理页地址为0
-    }
-    *tp[1] = 0;
-    *tp[0] = pp2;
-    page_free_list = pp1;
-  }
-
-  // if there's a page that shouldn't be on the free list,
-  // try to make sure it eventually causes trouble.
-  for (pp = page_free_list; pp; pp = pp->pp_link)
-    if (PDX(page2pa(pp)) < pdx_limit)
-      memset(page2kva(pp), 0x97, 128);
-
-  first_free_page = (char *)boot_alloc(0);
-  for (pp = page_free_list; pp; pp = pp->pp_link) {
-    // check that we didn't corrupt the free list itself
-    assert(pp >= pages);
-    assert(pp < pages + npages);
-    assert(((char *)pp - (char *)pages) % sizeof(*pp) == 0);
-
-    // check a few pages that shouldn't be on the free list
-    assert(page2pa(pp) != 0);
-    assert(page2pa(pp) != IOPHYSMEM);
-    assert(page2pa(pp) != EXTPHYSMEM - PGSIZE);
-    assert(page2pa(pp) != EXTPHYSMEM);
-    assert(page2pa(pp) < EXTPHYSMEM || (char *)page2kva(pp) >= first_free_page);
-
-    if (page2pa(pp) < EXTPHYSMEM)
-      ++nfree_basemem;
-    else
-      ++nfree_extmem;
-  }
-
-  assert(nfree_basemem > 0);
-  assert(nfree_extmem > 0);
-
-  printf("check_page_free_list() succeeded!\n");
-}
 // --------------------------------------------------------------
 // Tracking of physical pages.
 // The 'pages' array has one 'struct PageInfo' entry per physical page.
@@ -253,35 +181,166 @@ void page_init(void) {
   extern char _start[], end[];
   extern pde_t entry_pgdir[];
   extern pte_t entry_pgtable[];
-  physaddr_t addr, kern_start, kern_end, pgdir_addr, pgtable_addr;
+  physaddr_t addr, kern_start, kern_end, entry_pgdir_addr, entry_pgtable_addr, kern_pgdir_addr;
+  physaddr_t pages_start, pages_end;
 
-  kern_start = (physaddr_t) ROUNDDOWN((char *)_start, PGSIZE) - KERNBASE;
-  kern_end = (physaddr_t) ROUNDDOWN((char *)end, PGSIZE) - KERNBASE;
-  pgdir_addr = (physaddr_t) entry_pgdir - KERNBASE;
-  pgtable_addr = (physaddr_t) entry_pgtable - KERNBASE;
+  kern_start = ROUNDDOWN(PADDR(_start), PGSIZE);
+  kern_end = ROUNDDOWN(PADDR(end), PGSIZE);
+  entry_pgdir_addr = PADDR(entry_pgdir);
+  entry_pgtable_addr = PADDR(entry_pgtable);
+  kern_pgdir_addr = PADDR(kern_pgdir);
+  pages_start = ROUNDDOWN(PADDR(pages), PGSIZE);
+  pages_end = ROUNDDOWN(PADDR(&pages[npages]), PGSIZE);
 
-  printf("kern_entry: %x  kern_end: %x\n", kern_start, kern_end);
-  printf("pgdir_addr: %x  pgtable_addr: %x\n", pgdir_addr, pgtable_addr);
+  printf("kern_entry: %x  kern_end: %x  kern_pgdir_addr: %x\n", kern_start, kern_end, kern_pgdir_addr);
+  printf("entry_pgdir_addr: %x  entry_pgtable_addr: %x\n", entry_pgdir_addr, entry_pgtable_addr);
   printf("npages: %d  npages_basemem: %d\n", npages, npages_basemem);
+  printf("pages_start: %x  pages_end: %x\n", pages_start, pages_end);
 
   for (i = 0, addr = 0; i < npages; i++, addr += PGSIZE) {
     pages[i].pp_ref = 0;
 
-    if (addr >= PGSIZE && addr < npages_basemem * PGSIZE) {
+    if (addr == 0) {
       pages[i].pp_ref = 1;
     } else if (addr >= IOPHYSMEM && addr < EXTPHYSMEM) {
       pages[i].pp_ref = 1;
     } else if (addr >= EXTPHYSMEM) {
       if (addr >= kern_start && addr <= kern_end) { /* kernel */
         pages[i].pp_ref = 1;
-      } else if (addr == (physaddr_t) entry_pgdir || addr == (physaddr_t) entry_pgtable) { /* pgdir & pgtable */
+      } else if (addr == entry_pgdir_addr ||
+          addr == entry_pgtable_addr ||
+          addr == kern_pgdir_addr) {
+        pages[i].pp_ref = 1;
+      } else if (addr >= pages_start && addr < pages_end) {
         pages[i].pp_ref = 1;
       }
     }
 
-    pages[i].pp_link = page_free_list;
-    page_free_list = &pages[i];
+    if (pages[i].pp_ref == 0) {
+      pages[i].pp_link = page_free_list;
+      page_free_list = &pages[i];
+    }
   }
 
   printf("page_free_list: %x\n", page_free_list);
+}
+
+// --------------------------------------------------------------
+// Checking functions.
+// --------------------------------------------------------------
+
+//
+// Check that the pages on the page_free_list are reasonable.
+//
+static void check_page_free_list(bool only_low_memory) {
+  struct PageInfo *pp;
+  unsigned pdx_limit = only_low_memory ? 1 : NPDENTRIES; /* NPDENTRIES = 1024 */
+  int nfree_basemem = 0, nfree_extmem = 0;
+  char *first_free_page;
+
+  if (!page_free_list)
+    panic("'page_free_list' is a null pointer!");
+
+  if (only_low_memory) {
+    // Move pages with lower addresses first in the free
+    // list, since entry_pgdir does not map all pages.
+    struct PageInfo *pp1, *pp2;
+    struct PageInfo **tp[2] = {&pp1, &pp2};
+    for (pp = page_free_list; pp; pp = pp->pp_link) {
+      // page2pa(pp): (pp - pages) << PGSHIFT /* 得到 pp 指向的 PageInfo 所描述的物理页地址 */
+      // PDX(la): (la >> PDXSHIFT) & 0x3FF /* 得到线性地址 la 的页目录索引, 也就是 la 的高 10 bits */
+      // PDX(page2pa(pp)): 得到 pp 对应的物理页地址的“页目录索引”, 即高 10 bits */
+      int pagetype = PDX(page2pa(pp)) >= pdx_limit; /* only_low_memory == true 时 pdx_limit = 1 */
+      // pagetype 是一个布尔值, 只能等于0或1.
+      // 页目录一共有 1024 项, 每一项指向一个页表, 每个页表能映射 4MB 虚拟内存, 1024 个页表共能映射 4GB 虚拟内存.
+      // 1024 个页表对应的页目录索引为 { 0, 1, 2, ... , 1023 }. 如果 PDX(page2pa(pp)) == 0, 就说明 pp 对应的
+      // 物理页地址位于 [0, 4MB) 这个范围, 则 pagetype = 0; 如果 pp 对应的物理页地址在 4MB 之上, 则 pagetype = 1.
+      *tp[pagetype] = pp;
+      tp[pagetype] = &pp->pp_link;
+      // 由于 page_free_list 的方向是由高地址页指向低地址页, 所以当第一次满足 pagetype == 0 时,
+      // pp 指向的 PageInfo 对应的物理页地址是 0x3FF000 (往后一页的地址就是 4MB), 从而初始化 pp1
+      // 亦指向同一个 PageInfo.
+      // 循环结束后 tp[0] = &pages[0], pages[0] 对应第一个物理页, 可以在 gdb 里查看:
+      // ┌────────────────────────────────────────┐
+      // │ (gdb) p &pages[0]                      │
+      // │ $17 = (struct PageInfo *) 0xf010f000   │
+      // │ (gdb) p tp                             │
+      // │ $18 = {0xf010f000, 0xf0111000}         │
+      // └────────────────────────────────────────┘
+      // 同理可知:
+      // pp2 指向的 PageInfo 对应最后一个物理页;
+      // tp[1] = &pages[1024], pages[1024] 对应的物理页地址为 4MB.
+
+      // 综上, 循环结束后:
+      //  pp1 = &pages[1023], pp2 = &pages[npages-1]
+      //  tp[0] = &pages[0], tp[1] = &pages[1024]
+      // tp[0] ~ pp1 对应物理页 [0,4MB)
+      // tp[1] ~ pp2 对应物理页 [4MB,...)
+    }
+    *tp[1] = 0;
+    *tp[0] = pp2;
+    // 上面这两行写得很奇怪, 需要清楚 PageInfo 的结构:
+    // ┌───────────────────────────────┐
+    // │struct PageInfo {              │
+	  // │  struct PageInfo *pp_link;    │
+	  // │  uint16_t pp_ref;             │
+    // │};                             │
+    // └───────────────────────────────┘
+    // 再结合gdb:
+    // ┌─────────────────────────────────────────────────────────────────┐
+    // │ (gdb) p &pages[1024]
+    // │ $3 = (struct PageInfo *) 0xf0111000
+    // │ (gdb) p tp
+    // │ $4 = {0xf010f000, 0xf0111000}
+    // │ (gdb) p *tp[1]
+    // │ $5 = (struct PageInfo *) 0xf0110ff8
+    // │ (gdb) p pages[1024]
+    // │ $6 = {pp_link = 0xf0110ff8, pp_ref = 0}
+    // │ (gdb) n
+    // │ => 0xf0100edd <check_page_free_list+181>:	mov    -0x30(%ebp),%eax
+    // │ 191	    *tp[0] = pp2;
+    // │ (gdb) p pages[1024]
+    // │ $7 = {pp_link = 0x0, pp_ref = 0}
+    // └─────────────────────────────────────────────────────────────────┘
+    // 首先明确 tp[1] = &pages[1024], PageInfo 第一个字段`pp_link'是 PageInfo* 类型.
+
+    page_free_list = pp1; /* pp1 = &pages[1023] */
+
+    // for循环外面的这3行代码的作用是把 pages 截成两部分: 前一部分对应物理地址 [0,4MB),
+    // 后一部分对应物理地址 [4MB,...), 并且 page_free_list 只包含前一部分.
+  }
+
+  // if there's a page that shouldn't be on the free list,
+  // try to make sure it eventually causes trouble.
+  for (pp = page_free_list; pp; pp = pp->pp_link) {
+    if (PDX(page2pa(pp)) < pdx_limit) {
+      // page2kva(pp): page2pa(pp) + KERNBASE
+      memset(page2kva(pp), 0x97, 128);
+    }
+  }
+
+  first_free_page = (char *)boot_alloc(0);
+  for (pp = page_free_list; pp; pp = pp->pp_link) {
+    // check that we didn't corrupt the free list itself
+    assert(pp >= pages);
+    assert(pp < pages + npages);
+    assert(((char *)pp - (char *)pages) % sizeof(*pp) == 0);
+
+    // check a few pages that shouldn't be on the free list
+    assert(page2pa(pp) != 0);
+    assert(page2pa(pp) != IOPHYSMEM);
+    assert(page2pa(pp) != EXTPHYSMEM - PGSIZE);
+    assert(page2pa(pp) != EXTPHYSMEM);
+    assert(page2pa(pp) < EXTPHYSMEM || (char *)page2kva(pp) >= first_free_page);
+
+    if (page2pa(pp) < EXTPHYSMEM)
+      ++nfree_basemem;
+    else
+      ++nfree_extmem;
+  }
+
+  assert(nfree_basemem > 0);
+  assert(nfree_extmem > 0);
+
+  printf("check_page_free_list() succeeded!\n");
 }

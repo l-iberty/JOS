@@ -11,6 +11,7 @@ global rcr0
 global rcr3
 global lcr0
 global lcr3
+global invlpg
 
 
 [SECTION .text]
@@ -107,4 +108,10 @@ lcr0:
 lcr3:
     mov   eax, [esp+4]
     mov   cr3, eax
+    ret
+
+; void invlpg(void *addr)
+invlpg:
+    mov     eax, [esp+4]
+    invlpg  [eax]
     ret

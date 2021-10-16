@@ -18,4 +18,6 @@ uint32_t rcr3();
 void lcr0(uint32_t x);
 void lcr3(uint32_t x);
 
+void invlpg(void *addr);
+
 #endif /* _JOS_LIB_H_*/

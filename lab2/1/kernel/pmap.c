@@ -139,7 +139,7 @@ void mem_init() {
 
   check_page_free_list(1);
   check_page_alloc();
-  // check_page();
+  check_page();
 }
 
 // --------------------------------------------------------------
@@ -310,7 +310,24 @@ void page_decref(struct PageInfo *pp) {
 //
 pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
   // Fill this function in
-  return NULL;
+  struct PageInfo *pp;
+  pte_t *pgtable;
+
+  pgtable = (pte_t *)pgdir[PDX(va)];
+  if (pgtable == NULL) {
+    if (!create) {
+      return NULL;
+    }
+    pp = page_alloc(ALLOC_ZERO);
+    if (pp == NULL) {
+      return NULL;
+    }
+    pp->pp_ref++;
+    pgtable = (pte_t *)page2pa(pp);
+    pgdir[PDX(va)] = (uintptr_t)pgtable | PTE_P;
+  }
+  pgtable = (pte_t *)KADDR((physaddr_t)pgtable);
+  return &pgtable[PTX(va)];
 }
 
 //
@@ -355,6 +372,21 @@ static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t 
 //
 int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
   // Fill this function in
+  pte_t *ppte;
+
+  ppte = pgdir_walk(pgdir, va, 0);
+  if (ppte && *ppte != 0) {
+    page_remove(pgdir, va);
+  }
+  ppte = pgdir_walk(pgdir, va, 1);
+  if (ppte == NULL) {
+    return -E_NO_MEM;
+  }
+
+  *ppte = page2pa(pp) | perm | PTE_P;
+  pp->pp_ref++;
+  tlb_invalidate(pgdir, va);
+
   return 0;
 }
 
@@ -371,7 +403,18 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
 //
 struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store) {
   // Fill this function in
-  return NULL;
+  pte_t *ppte;
+  physaddr_t pa;
+
+  ppte = pgdir_walk(pgdir, va, 0);
+  if (ppte == NULL) {
+    return NULL;
+  }
+  if (pte_store) {
+    *pte_store = ppte;
+  }
+  pa = PTE_ADDR(*ppte);
+  return pa2page(pa);
 }
 
 //
@@ -391,6 +434,19 @@ struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store) {
 //
 void page_remove(pde_t *pgdir, void *va) {
   // Fill this function in
+  struct PageInfo *pp;
+  pte_t *pgtable;
+  
+  pgtable = (pte_t *)pgdir[PDX(va)];
+  if (pgtable == NULL) {
+    return;
+  }
+  pp = pa2page(PADDR(va));
+  page_decref(pp);
+
+  pgtable = (pte_t *)KADDR((physaddr_t)pgtable);
+  pgtable[PTX(va)] = 0;
+  tlb_invalidate(pgdir, va);
 }
 
 //

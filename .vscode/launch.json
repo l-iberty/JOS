@@ -10,7 +10,8 @@
 			"request": "attach",
 			"remote": true,
 			"target": "localhost:1234",
-			"cwd": "${workspaceRoot}/lab2/1",
+			"cwd": "${workspaceRoot}",
+			"executable": "${workspaceRoot}/lab2/1/obj/kernel/kernel",
 			"valuesFormatting": "parseText"
 		}
 	]

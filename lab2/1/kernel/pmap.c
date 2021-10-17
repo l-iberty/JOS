@@ -143,6 +143,62 @@ void mem_init() {
   check_page_free_list(1);
   check_page_alloc();
   check_page();
+
+  //////////////////////////////////////////////////////////////////////
+  // Now we set up virtual memory
+
+  //////////////////////////////////////////////////////////////////////
+  // Map 'pages' read-only by the user at linear address UPAGES
+  // Permissions:
+  //    - the new image at UPAGES -- kernel R, user R
+  //      (ie. perm = PTE_U | PTE_P)
+  //    - pages itself -- kernel RW, user NONE
+  // Your code goes here:
+
+  //////////////////////////////////////////////////////////////////////
+  // Use the physical memory that 'bootstack' refers to as the kernel
+  // stack.  The kernel stack grows down from virtual address KSTACKTOP.
+  // We consider the entire range from [KSTACKTOP-PTSIZE, KSTACKTOP)
+  // to be the kernel stack, but break this into two pieces:
+  //     * [KSTACKTOP-KSTKSIZE, KSTACKTOP) -- backed by physical memory
+  //     * [KSTACKTOP-PTSIZE, KSTACKTOP-KSTKSIZE) -- not backed; so if
+  //       the kernel overflows its stack, it will fault rather than
+  //       overwrite memory.  Known as a "guard page".
+  //     Permissions: kernel RW, user NONE
+  // Your code goes here:
+
+  //////////////////////////////////////////////////////////////////////
+  // Map all of physical memory at KERNBASE.
+  // Ie.  the VA range [KERNBASE, 2^32) should map to
+  //      the PA range [0, 2^32 - KERNBASE)
+  // We might not have 2^32 - KERNBASE bytes of physical memory, but
+  // we just set up the mapping anyway.
+  // Permissions: kernel RW, user NONE
+  // Your code goes here:
+
+  // Check that the initial page directory has been set up correctly.
+  check_kern_pgdir();
+
+  // Switch from the minimal entry page directory to the full kern_pgdir
+  // page table we just created.	Our instruction pointer should be
+  // somewhere between KERNBASE and KERNBASE+4MB right now, which is
+  // mapped the same way by both page tables.
+  //
+  // If the machine reboots at this point, you've probably set up your
+  // kern_pgdir wrong.
+  lcr3(PADDR(kern_pgdir));
+
+  check_page_free_list(0);
+
+  // entry.S set the really important flags in cr0 (including enabling
+  // paging).  Here we configure the rest of the flags that we care about.
+  cr0 = rcr0();
+  cr0 |= CR0_PE | CR0_PG | CR0_AM | CR0_WP | CR0_NE | CR0_MP;
+  cr0 &= ~(CR0_TS | CR0_EM);
+  lcr0(cr0);
+
+  // Some more checks, only possible after kern_pgdir is installed.
+  check_page_installed_pgdir();
 }
 
 // --------------------------------------------------------------
@@ -190,13 +246,14 @@ void page_init(void) {
       kern_pgdir_addr;
   physaddr_t pages_start, pages_end;
 
-  kern_start = ROUNDDOWN(PADDR(_start), PGSIZE);
-  kern_end = ROUNDDOWN(PADDR(end), PGSIZE);
-  entry_pgdir_addr = PADDR(entry_pgdir);
-  entry_pgtable_addr = PADDR(entry_pgtable);
-  kern_pgdir_addr = PADDR(kern_pgdir);
-  pages_start = ROUNDDOWN(PADDR(pages), PGSIZE);
-  pages_end = ROUNDDOWN(PADDR(&pages[npages]), PGSIZE);
+  kern_start = PTE_ADDR(PADDR(_start));
+  kern_end = PTE_ADDR(PADDR(end));
+  entry_pgdir_addr = PTE_ADDR(PADDR(entry_pgdir));
+  entry_pgtable_addr = PTE_ADDR(PADDR(entry_pgtable));
+
+  kern_pgdir_addr = PTE_ADDR(PADDR(kern_pgdir));
+  pages_start = PTE_ADDR(PADDR(pages));
+  pages_end = PTE_ADDR(PADDR(&pages[npages]));
 
   printf("kern_entry: %x  kern_end: %x  kern_pgdir_addr: %x\n", kern_start,
          kern_end, kern_pgdir_addr);
@@ -874,4 +931,44 @@ static void check_page(void) {
   page_free(pp2);
 
   printf("check_page() succeeded!\n");
+}
+
+// check page_insert, page_remove, &c, with an installed kern_pgdir
+static void check_page_installed_pgdir(void) {
+  struct PageInfo *pp, *pp0, *pp1, *pp2;
+  struct PageInfo *fl;
+  pte_t *ptep, *ptep1;
+  uintptr_t va;
+  int i;
+
+  // check that we can read and write installed pages
+  pp1 = pp2 = 0;
+  assert((pp0 = page_alloc(0)));
+  assert((pp1 = page_alloc(0)));
+  assert((pp2 = page_alloc(0)));
+  page_free(pp0);
+  memset(page2kva(pp1), 1, PGSIZE);
+  memset(page2kva(pp2), 2, PGSIZE);
+  page_insert(kern_pgdir, pp1, (void *)PGSIZE, PTE_W);
+  assert(pp1->pp_ref == 1);
+  assert(*(uint32_t *)PGSIZE == 0x01010101U);
+  page_insert(kern_pgdir, pp2, (void *)PGSIZE, PTE_W);
+  assert(*(uint32_t *)PGSIZE == 0x02020202U);
+  assert(pp2->pp_ref == 1);
+  assert(pp1->pp_ref == 0);
+  *(uint32_t *)PGSIZE = 0x03030303U;
+  assert(*(uint32_t *)page2kva(pp2) == 0x03030303U);
+  page_remove(kern_pgdir, (void *)PGSIZE);
+  assert(pp2->pp_ref == 0);
+
+  // forcibly take pp0 back
+  assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
+  kern_pgdir[0] = 0;
+  assert(pp0->pp_ref == 1);
+  pp0->pp_ref = 0;
+
+  // free the pages we took
+  page_free(pp0);
+
+  printf("check_page_installed_pgdir() succeeded!\n");
 }

@@ -19,8 +19,7 @@ extern pde_t *kern_pgdir;
 #define PADDR(kva) _paddr(__FILE__, __LINE__, kva)
 
 static inline physaddr_t _paddr(const char *file, int line, void *kva) {
-  if ((uint32_t)kva < KERNBASE)
-    _panic(file, line, "PADDR called with invalid kva %x", kva);
+  if ((uint32_t)kva < KERNBASE) _panic(file, line, "PADDR called with invalid kva %x", kva);
   return (physaddr_t)kva - KERNBASE;
 }
 
@@ -29,8 +28,7 @@ static inline physaddr_t _paddr(const char *file, int line, void *kva) {
 #define KADDR(pa) _kaddr(__FILE__, __LINE__, pa)
 
 static inline void *_kaddr(const char *file, int line, physaddr_t pa) {
-  if (PGNUM(pa) >= npages)
-    _panic(file, line, "KADDR called with invalid pa %x", pa);
+  if (PGNUM(pa) >= npages) _panic(file, line, "KADDR called with invalid pa %x", pa);
   return (void *)(pa + KERNBASE);
 }
 
@@ -54,8 +52,7 @@ void tlb_invalidate(pde_t *pgdir, void *va);
 static inline physaddr_t page2pa(struct PageInfo *pp) { return (pp - pages) << PGSHIFT; }
 
 static inline struct PageInfo *pa2page(physaddr_t pa) {
-  if (PGNUM(pa) >= npages)
-    panic("pa2page called with invalid pa");
+  if (PGNUM(pa) >= npages) panic("pa2page called with invalid pa");
   return &pages[PGNUM(pa)];
 }
 

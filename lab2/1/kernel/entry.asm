@@ -7,9 +7,14 @@ CR0_WP   equ 00010000h ; Write Protect
 CR0_PG   equ 80000000h ; Paging
 KSTKSIZE equ 4096*8
 
-[SECTION .text]
+%define RELOC(x) ((x) - KERNBASE)
+
 global _start
-_start:
+_start equ RELOC(entry)
+
+[SECTION .text]
+global entry
+entry:
 	; We haven't set up virtual memory yet, so we're running from
 	; the physical address the boot loader loaded the kernel at: 1MB
 	; (plus a few bytes).  However, the C code is linked to run at

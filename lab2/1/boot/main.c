@@ -1,8 +1,6 @@
-#include <include/types.h>
+#include <include/elf.h>
 #include <include/hd.h>
 #include <include/x86.h>
-#include <include/elf.h>
-#include <include/memlayout.h>
 
 /**********************************************************************
  * This a dirt simple boot loader, whose sole job is to boot
@@ -48,10 +46,10 @@
  *  * bootmain() in this file takes over, reads in the kernel and jumps to it.
  **********************************************************************/
 
-#define SECSIZE   512
-#define ELFHDR    ((struct Elf *) 0x10000) // scratch space
+#define SECSIZE 512
+#define ELFHDR ((struct Elf *)0x10000)  // scratch space
 
-typedef void(*EntryFn)();
+typedef void (*EntryFn)();
 
 void readsect(void *dst, uint32_t sector);
 void readseg(uint32_t pa, uint32_t count, uint32_t offset);
@@ -60,7 +58,7 @@ void bootmain() {
   struct Proghdr *ph, *eph;
 
   // read 1st page off disk
-  readseg((uint32_t) ELFHDR, SECSIZE*8, 0);
+  readseg((uint32_t)ELFHDR, SECSIZE * 8, 0);
 
   // is this a valid ELF?
   if (ELFHDR->e_magic != ELF_MAGIC) {
@@ -68,7 +66,7 @@ void bootmain() {
   }
 
   // load each program segment (ignores ph flags)
-  ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
+  ph = (struct Proghdr *)((uint8_t *)ELFHDR + ELFHDR->e_phoff);
   eph = ph + ELFHDR->e_phnum;
   for (; ph < eph; ph++) {
     // p_pa is the load address of this segment (as well
@@ -78,7 +76,7 @@ void bootmain() {
 
   // call the entry point from the ELF header
   // note: does not return!
-  ((EntryFn) (ELFHDR->e_entry - KERNBASE))();
+  ((EntryFn)(ELFHDR->e_entry))();
 
 bad:
   asm volatile("hlt");
@@ -86,8 +84,7 @@ bad:
 
 void waitdisk() {
   // wait for disk ready
-  while ((x86_inb(REG_STATUS) & (STATUS_BSY | STATUS_DRDY)) != STATUS_DRDY)
-    /* do nothing */ ;
+  while ((x86_inb(REG_STATUS) & (STATUS_BSY | STATUS_DRDY)) != STATUS_DRDY) /* do nothing */;
 }
 
 // Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
@@ -114,7 +111,7 @@ void readseg(uint32_t pa, uint32_t count, uint32_t offset) {
     // an identity segment mapping (see boot.asm), we can
     // use physical address directly. This won't be the case
     // once JOS enables the MMU.
-    readsect((uint8_t*) pa, sector);
+    readsect((uint8_t *)pa, sector);
     pa += SECSIZE;
     sector++;
   }
@@ -138,5 +135,5 @@ void readsect(void *dst, uint32_t sector) {
   waitdisk();
 
   // read a sector
-  x86_insl(REG_DATA, dst, SECSIZE/4);
+  x86_insl(REG_DATA, dst, SECSIZE / 4);
 }

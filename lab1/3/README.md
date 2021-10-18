@@ -157,7 +157,7 @@ segment 是站在操作系统的角度上对 section 的一种组织方式，对
 ![](imgs/symbols.png)
 
 ### 代码段入口点`_start`
-kernel 的链接地址是虚拟地址`0xF0100000`，这意味着`kernel/entry.asm`导出的`_start`这个符号的地址不在是原来的物理地址`0x100000`了，用`objdump -x`可以验证：
+kernel 的链接地址是虚拟地址`0xF0100000`，这意味着`kernel/entry.asm`导出的`_start`这个符号的地址不再是原来的物理地址`0x100000`了，用`objdump -x`可以验证：
 ```
 $ objdump -x obj/kernel/kernel | grep _start
 f0100000 g       .text	00000000 _start
@@ -171,9 +171,23 @@ f0100000 g       .text	00000000 _start
 .globl    _start
 _start = RELOC(entry)
 ```
-他的`entry`是`0xF0100000`，导出的`_start`等于`entry - 0xF0000000(KERNBASE)`。但是 NASM 汇编器不支持这种语法，所以只能在`bootmain()`里这样写：
-```c
-  ((EntryFn) (ELFHDR->e_entry - KERNBASE))();
+他的`entry`是`0xF0100000`，导出的`_start`等于`entry - 0xF0000000(KERNBASE)`。对`kernel/entry.asm`进行同样的修改：
+```
+%define RELOC(x) ((x) - KERNBASE)
+
+global _start
+_start equ RELOC(entry)
+
+[SECTION .text]
+global entry
+entry:
+  ......
+```
+
+重新 make 出来的 kernel 的`_start`符号地址就是`0x100000`了：
+```
+$ objdump -x obj/kernel/kernel|grep _start
+00100000 g       .text	00000000 _start
 ```
 
 ### 让`EIP`打到虚拟地址`KERNBASE`之上

@@ -1,13 +1,13 @@
 // Simple command-line kernel monitor useful for
 // controlling the kernel and exploring the system interactively.
 
-#include <include/elf.h>
 #include <include/lib.h>
 #include <include/memlayout.h>
 #include <include/stdio.h>
 #include <include/string.h>
 #include <kernel/console.h>
 #include <kernel/monitor.h>
+#include <kernel/pmap.h>
 
 #define CMDBUF_SIZE 80  // enough for one CGA text line
 #define ELFHDR ((struct Elf *)0x10000)
@@ -19,12 +19,13 @@ struct Command {
   int (*func)(int argc, char **argv, struct Trapframe *tf);
 };
 
-static struct Command commands[] = {
-    {"help", "Display this list of commands", mon_help},
-    {"kerninfo", "Display information about the kernel", mon_kerninfo},
-    {"paginginfo", "Display information about the paging", mon_paginginfo},
-    {"reboot", "Reboot the JOS", mon_reboot},
-};
+static struct Command commands[] = {{"help", "Display this list of commands", mon_help},
+                                    {"kerninfo", "Display information about the kernel", mon_kerninfo},
+                                    {"reboot", "Reboot the JOS", mon_reboot},
+                                    {"showmappings",
+                                     "display the physical page mappings and corresponding permission bits that apply "
+                                     "to the pages at virtual addresses",
+                                     mon_showmappings}};
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -40,38 +41,90 @@ int mon_help(int argc, char **argv, struct Trapframe *tf) {
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   extern char _start[], entry[], etext[], edata[], end[];
 
-  struct Proghdr *ph, *eph;
-  int i;
-
-  ph = (struct Proghdr *)((uint8_t *)ELFHDR + ELFHDR->e_phoff);
-  eph = ph + ELFHDR->e_phnum;
-
   printf("Special kernel symbols:\n");
-  printf("  _start            %x (phys)\n", _start);
+  printf("  _start                    %x (phys)\n", _start);
   printf("  entry  %x (virt)  %x (phys)\n", entry, entry - KERNBASE);
   printf("  etext  %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
   printf("  edata  %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
   printf("  end    %x (virt)  %x (phys)\n", end, end - KERNBASE);
-  printf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - _start, 1024) / 1024);
-
-  for (i = 1; ph < eph; ph++, i++) {
-    printf("segment %d: pa = %x  va = %x  memsz = %x\n", i, ph->p_pa, ph->p_va, ph->p_memsz);
-  }
+  printf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - entry, 1024) / 1024);
 
   return 0;
 }
 
-int mon_paginginfo(int argc, char **argv, struct Trapframe *tf) {
-  extern char entry_pgdir[];
-  extern char entry_pgtable[];
-  extern int entry_pgdir_size, entry_pgtable_size;
+int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
+  extern pde_t *kern_pgdir;
+  pte_t *pgtable, pte;
+  uintptr_t va, va_start, va_end;
+  physaddr_t pa;
+  uint32_t perm;
+  char perm_buf[100], *p;
 
-  printf("Information of paging:\n");
-  printf("  pgdir   addr:  %x (virt)  %x (phys)\n", entry_pgdir, entry_pgdir - KERNBASE);
-  printf("  pgtable addr:  %x (virt)  %x (phys)\n", entry_pgtable, entry_pgtable - KERNBASE);
-  printf("  sizeof pgdir:   %d\n", entry_pgdir_size);
-  printf("  sizeof pgtable: %d\n", entry_pgtable_size);
+  if (argc != 3) {
+    printf("Usage: showmappings va1 va2 (hex, page-aligned)\n");
+    return 1;
+  }
 
+  va_start = strtol(argv[1], NULL, 16);
+  va_end = strtol(argv[2], NULL, 16);
+
+  for (va = va_start; va <= va_end; va += PGSIZE) {
+    pgtable = (pte_t *)PTE_ADDR(kern_pgdir[PDX(va)]);
+    if (pgtable == NULL) {
+      pa = 0, perm = 0;
+    } else {
+      pgtable = (pte_t *)KADDR((physaddr_t)pgtable);
+      pte = pgtable[PTX(va)];
+      if (pte == 0) {
+        pa = 0, perm = 0;
+      } else {
+        pa = PTE_ADDR(pte);
+        perm = PTE_PERM(pte);
+      }
+    }
+    if (pa == 0 && perm == 0) {
+      printf("%x (virt) -> ??? (phys) ??? (perm)\n", va);
+    } else {
+      p = perm_buf;
+      if (perm & PTE_P) {
+        strcpy(p, "Present");
+        p += strlen(p);
+      }
+      if (perm & PTE_W) {
+        strcpy(p, " Writable");
+        p += strlen(p);
+      }
+      if (perm & PTE_U) {
+        strcpy(p, " User");
+        p += strlen(p);
+      }
+      if (perm & PTE_PWT) {
+        strcpy(p, " Write-Through");
+        p += strlen(p);
+      }
+      if (perm & PTE_PCD) {
+        strcpy(p, " Cache-Disable");
+        p += strlen(p);
+      }
+      if (perm & PTE_A) {
+        strcpy(p, " Accessed");
+        p += strlen(p);
+      }
+      if (perm & PTE_D) {
+        strcpy(p, " Dirty");
+        p += strlen(p);
+      }
+      if (perm & PTE_PS) {
+        strcpy(p, " Page-Size");
+        p += strlen(p);
+      }
+      if (perm & PTE_G) {
+        strcpy(p, " Global");
+        p += strlen(p);
+      }
+      printf("%x (virt) -> %x (phys) %s (perm)\n", va, pa, perm_buf);
+    }
+  }
   return 0;
 }
 

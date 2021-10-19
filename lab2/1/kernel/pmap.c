@@ -131,9 +131,8 @@ void mem_init() {
   //////////////////////////////////////////////////////////////////////
   // Now that we've allocated the initial kernel data structures, we set
   // up the list of free physical pages. Once we've done so, all further
-  // memory management will go through the page_* functions. In
-  // particular, we can now map memory using boot_map_region
-  // or page_insert
+  // memory management will go through the page_* functions. In particular,
+  // we can now map memory using boot_map_region or page_insert
   page_init();
 
   check_page_free_list(1);
@@ -240,24 +239,21 @@ void page_init(void) {
 
   size_t i;
   extern char entry[], end[];
-  extern pde_t entry_pgdir[];
-  extern pte_t entry_pgtable[];
-  physaddr_t addr, kern_entry, kern_end, entry_pgdir_addr, entry_pgtable_addr, kern_pgdir_addr;
+  physaddr_t addr, kern_entry, kern_end, kern_pgdir_addr;
   physaddr_t pages_start, pages_end;
 
-  kern_entry = PTE_ADDR(PADDR(entry));
-  kern_end = PTE_ADDR(PADDR(end));
-  entry_pgdir_addr = PTE_ADDR(PADDR(entry_pgdir));
-  entry_pgtable_addr = PTE_ADDR(PADDR(entry_pgtable));
+  kern_entry = ROUNDDOWN((PADDR(entry)), PGSIZE);
+  kern_end = ROUNDUP((PADDR(end)), PGSIZE);
 
-  kern_pgdir_addr = PTE_ADDR(PADDR(kern_pgdir));
-  pages_start = PTE_ADDR(PADDR(pages));
-  pages_end = PTE_ADDR(PADDR(&pages[npages]));
+  kern_pgdir_addr = ROUNDDOWN((PADDR(kern_pgdir)), PGSIZE);
+  pages_start = ROUNDDOWN((PADDR(pages)), PGSIZE);
+  pages_end = ROUNDDOWN((PADDR(&pages[npages])), PGSIZE);
 
-  printf("kern_entry: %x  kern_end: %x  kern_pgdir_addr: %x\n", kern_entry, kern_end, kern_pgdir_addr);
-  printf("entry_pgdir_addr: %x  entry_pgtable_addr: %x\n", entry_pgdir_addr, entry_pgtable_addr);
-  printf("npages: %d  npages_basemem: %d\n", npages, npages_basemem);
-  printf("pages_start: %x  pages_end: %x\n", pages_start, pages_end);
+  printf("======== page_init() start ========\n");
+  printf("  kernel: entry: %x  end: %x (phys)\n", kern_entry, kern_end);
+  printf("  kern_pgdir: %x (phys)\n", PADDR(kern_pgdir));
+  printf("  npages: %d  npages_basemem: %d\n", npages, npages_basemem);
+  printf("  pages[] [%x, %x) (phys)\n", PADDR(pages), PADDR(&pages[npages]));
 
   for (i = 0, addr = 0; i < npages; i++, addr += PGSIZE) {
     pages[i].pp_ref = 0;
@@ -267,11 +263,11 @@ void page_init(void) {
     } else if (addr >= IOPHYSMEM && addr < EXTPHYSMEM) {
       pages[i].pp_ref = 1;
     } else if (addr >= EXTPHYSMEM) {
-      if (addr >= kern_entry && addr <= kern_end) { /* kernel */
+      if (addr >= kern_entry && addr < kern_end) { /* kernel */
         pages[i].pp_ref = 1;
-      } else if (addr == entry_pgdir_addr || addr == entry_pgtable_addr || addr == kern_pgdir_addr) {
+      } else if (addr == kern_pgdir_addr) { /* kern_pgdir */
         pages[i].pp_ref = 1;
-      } else if (addr >= pages_start && addr < pages_end) {
+      } else if (addr >= pages_start && addr < pages_end) { /* pages[] */
         pages[i].pp_ref = 1;
       }
     }
@@ -282,7 +278,8 @@ void page_init(void) {
     }
   }
 
-  printf("page_free_list: %x\n", page_free_list);
+  printf("  page_free_list: %x (virt)\n", page_free_list);
+  printf("======== page_init() end ========\n");
 }
 
 //
@@ -577,9 +574,12 @@ static void check_page_free_list(bool only_low_memory) {
       // pagetype == 0 时, pp 指向的 PageInfo 对应的物理页地址是 0x3FF000
       // (往后一页的地址就是 4MB), 从而初始化 pp1 亦指向同一个 PageInfo.
       // 循环结束后 tp[0] = &pages[0], pages[0] 对应第一个物理页, 可以在 gdb
-      // 里查看: ┌────────────────────────────────────────┐ │ (gdb) p &pages[0]
-      // │ │ $17 = (struct PageInfo *) 0xf010f000   │ │ (gdb) p tp │ │ $18 =
-      // {0xf010f000, 0xf0111000}         │
+      // 里查看:
+      // ┌────────────────────────────────────────┐
+      // │ (gdb) p &pages[0]                      │
+      // │ $17 = (struct PageInfo *) 0xf010f000   │
+      // │ (gdb) p tp                             │
+      // │ $18 = {0xf010f000, 0xf0111000}         │
       // └────────────────────────────────────────┘
       // 同理可知:
       // pp2 指向的 PageInfo 对应最后一个物理页;

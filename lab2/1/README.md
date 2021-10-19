@@ -126,3 +126,200 @@ static inline physaddr_t page2pa(struct PageInfo *pp) {
   return (pp - pages) << PGSHIFT;
 }
 ```
+
+5. `page_init()`:
+```c
+  // Now that we've allocated the initial kernel data structures, we set
+  // up the list of free physical pages. Once we've done so, all further
+  // memory management will go through the page_* functions. In particular,
+  // we can now map memory using boot_map_region or page_insert
+  page_init();
+```
+
+按照注释进行是实现即可。对于`[EXTPHYSMEM,...)`（也就是1M以上的扩展内存，现在知道为什么bootloader要把kernel加载到1M这个地址上了）的物理内存，除了以下3块内容，其余均为空闲：
+- kernel
+- `mem_init()`里面分配的一个页目录`kern_pgdir`
+- `mem_init()`里面分配的`pages[]`数组
+
+但是，为什么没有目前使用的页目录`entry_pgdir`和页表`entry_pgtable`？因为他们是直接编译进kernel的，位于kernel的范围内。
+
+要完成`mem_init()`余下的代码需要先以下函数：
+
+### `page_alloc()`
+```c
+struct PageInfo *page_alloc(int alloc_flags) {
+  // Fill this function in
+  struct PageInfo *pp;
+
+  if (page_free_list == NULL) {
+    return NULL;
+  }
+  pp = page_free_list;
+  page_free_list = page_free_list->pp_link;
+  pp->pp_link = NULL;
+
+  if (alloc_flags & ALLOC_ZERO) {
+    memset(page2kva(pp), 0, PGSIZE);
+  }
+
+  return pp;
+}
+```
+从`page_free_list`取出一个空闲物理页，然后更新`page_free_list`指向下一个空闲物理页（严格来说应该是“空闲物理页的描述符`PageInfo`结构”）。
+
+为什么要用`page2kva()`取虚拟地址？
+
+因为在目前的二级页表中`[0,4M)`的虚拟内存是只读的，要想向这块物理地址写入数据就需要把虚拟地址提高到`KERNBASE`之上。
+
+### `page_free()`
+```c
+void page_free(struct PageInfo *pp) {
+  // Fill this function in
+  // Hint: You may want to panic if pp->pp_ref is nonzero or
+  // pp->pp_link is not NULL.
+  if (pp->pp_ref != 0) {
+    panic("page_free: pp->pp_ref != nonzero");
+  }
+  if (pp->pp_link) {
+    panic("page_free: pp->pp_link != NULL");
+  }
+
+  pp->pp_link = page_free_list;
+  page_free_list = pp;
+}
+```
+
+### `pgdir_walk()`
+```c
+pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
+  // Fill this function in
+  struct PageInfo *pp;
+  pte_t *pgtable;
+
+  pgtable = (pte_t *)PTE_ADDR(pgdir[PDX(va)]);
+  if (pgtable == NULL) {
+    if (!create) {
+      return NULL;
+    }
+    pp = page_alloc(ALLOC_ZERO);
+    if (pp == NULL) {
+      return NULL;
+    }
+    pp->pp_ref++;
+    pgtable = (pte_t *)page2pa(pp);
+    pgdir[PDX(va)] = (uintptr_t)pgtable | PTE_P | PTE_W;
+  }
+  pgtable = (pte_t *)KADDR((physaddr_t)pgtable);
+  return &pgtable[PTX(va)];
+}
+```
+这个函数非常重要。根据线性地址`va`查询二级页表，返回一个指向页表项的指针——该页表项应该存储线性地址`va`映射到的物理页地址（低12 bits是属性）。
+
+首先通过`PDX`宏取得`va`的高10 bits，即页目录的索引，得到页目录项`pgdir[PDX(va)]`；再通过`PTE_ADDR`清除属性位，得到页表的物理地址，赋值给`pgtable`；
+
+若页表不存在且`create == true`则调用`page_alloc()`分配一个物理页作为页表，将页表物理地址写入页目录项`pgdir[PDX(va)]`；
+
+最后返回页表项`pgtable[PTX(va)]`的指针——这个指针必须是`KERNBASE`之上的虚拟地址，否则调用者无法向其写入。
+
+### `page_insert()`
+```c
+int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
+  // Fill this function in
+  pte_t *ppte;
+
+  ppte = pgdir_walk(pgdir, va, true);
+  if (ppte == NULL) {
+    return -E_NO_MEM;
+  }
+
+  if (*ppte != 0) {
+    if (PTE_ADDR(*ppte) != page2pa(pp)) {
+      page_remove(pgdir, va);
+      pp->pp_ref++;
+    }
+  } else {
+    pp->pp_ref++;
+  }
+
+  pgdir[PDX(va)] = PTE_ADDR(pgdir[PDX(va)]) | perm | PTE_P;
+  *ppte = page2pa(pp) | perm | PTE_P;
+
+  return 0;
+}
+```
+这个函数的实现比较复杂，需要覆盖众多的corner case，我调试了很久。流程图：
+
+![](imgs/page_insert.png)
+
+### `page_lookup()`
+略
+
+### `page_remove()`
+略
+
+### `boot_map_region()`
+```c
+//
+// Map [va, va+size) of virtual address space to physical [pa, pa+size)
+// in the page table rooted at pgdir.  Size is a multiple of PGSIZE, and
+// va and pa are both page-aligned.
+// Use permission bits perm|PTE_P for the entries.
+//
+// This function is only intended to set up the ``static'' mappings
+// above UTOP. As such, it should *not* change the pp_ref field on the
+// mapped pages.
+//
+// Hint: the TA solution uses pgdir_walk
+static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm) {
+  // Fill this function in
+  assert(va % PGSIZE == 0);
+  assert(pa % PGSIZE == 0);
+  assert(size % PGSIZE == 0);
+
+  uint64_t __u64_va = (uint64_t)va;
+  uint64_t __u64_va_end = __u64_va + size;
+  uint64_t __u64_pa = (uint64_t)pa;
+  pte_t *ppte;
+
+  while (__u64_va < __u64_va_end) {
+    va = (uintptr_t)__u64_va;
+    pa = (uintptr_t)__u64_pa;
+    ppte = pgdir_walk(pgdir, (const void *)va, true);
+    assert(ppte);
+    *ppte = pa | perm | PTE_P;
+
+    __u64_va += PGSIZE;
+    __u64_pa += PGSIZE;
+  }
+}
+```
+需要注意32位整数的溢出问题，例如`0xFFFFF000`再加上`0x1000(PGSIZE)`就会产生溢出，导致死循环，所以要使用64位整数进行计算。
+
+### `mem_init()`的后半部分
+按照注释用`boot_map_region()`建立地址映射即可，最后将新的页目录地址加载到`CR3`：
+```c
+  // Switch from the minimal entry page directory to the full kern_pgdir
+  // page table we just created.	Our instruction pointer should be
+  // somewhere between KERNBASE and KERNBASE+4MB right now, which is
+  // mapped the same way by both page tables.
+  //
+  // If the machine reboots at this point, you've probably set up your
+  // kern_pgdir wrong.
+  lcr3(PADDR(kern_pgdir));
+```
+
+Lab2的工作就完成了：
+
+![](imgs/lab2.png)
+
+## 修改/扩展kernel monitor
+### kerninfo
+由于`kernel/pmap.c`里的`check_*`函数修改了kernel所在内存（从`0x10000`开始）的数据，所以不能再从中读出 ELF 文件的相关信息了，只能显示那几个`extern`变量。
+
+### paginginfo
+以前位于kernel里的`entry_pgdir`和`entry_pgtale`已经无效了，`paginginfo`这个命令也不再需要了。
+
+### showmappings
+*Challenge!* 要求我们实现`showmappings`用于展示地址映射信息，这对后续的调试很有帮助，不妨实现一下：
+
+![](imgs/showmappings.png)

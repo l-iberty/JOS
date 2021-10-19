@@ -40,7 +40,7 @@ int mon_help(int argc, char **argv, struct Trapframe *tf) {
 }
 
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
-  extern char _start[], etext[], edata[], end[];
+  extern char _start[], entry[], etext[], edata[], end[];
 
   struct Proghdr *ph, *eph;
   int i;
@@ -49,7 +49,8 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   eph = ph + ELFHDR->e_phnum;
 
   printf("Special kernel symbols:\n");
-  printf("  _start %x (virt)  %x (phys)\n", _start, _start - KERNBASE);
+  printf("  _start:                   %x (phys)\n", _start);
+  printf("  entry  %x (virt)  %x (phys)\n", entry, entry - KERNBASE);
   printf("  etext  %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
   printf("  edata  %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
   printf("  end    %x (virt)  %x (phys)\n", end, end - KERNBASE);

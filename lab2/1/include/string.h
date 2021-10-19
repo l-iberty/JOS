@@ -12,4 +12,6 @@ char *strchr(const char *s, char c);
 void memset(void *dst, char ch, int n);
 void *memmove(void *dst, const void *src, size_t n);
 
+long strtol(const char *s, char **endptr, int base);
+
 #endif /* _JOS_STRING_H_ */

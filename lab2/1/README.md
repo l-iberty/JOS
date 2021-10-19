@@ -143,7 +143,7 @@ static inline physaddr_t page2pa(struct PageInfo *pp) {
 
 但是，为什么没有目前使用的页目录`entry_pgdir`和页表`entry_pgtable`？因为他们是直接编译进kernel的，位于kernel的范围内。
 
-要完成`mem_init()`余下的代码需要先以下函数：
+要完成`mem_init()`余下的代码需要先实现以下函数：
 
 ### `page_alloc()`
 ```c

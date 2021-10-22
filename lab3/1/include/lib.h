@@ -1,5 +1,5 @@
-#ifndef _JOS_LIB_H_
-#define _JOS_LIB_H_
+#ifndef JOS_INC_LIB_H
+#define JOS_INC_LIB_H
 
 #include <include/types.h>
 
@@ -20,4 +20,4 @@ void lcr3(uint32_t x);
 
 void invlpg(void *addr);
 
-#endif /* _JOS_LIB_H_*/
+#endif /* JOS_INC_LIB_H */

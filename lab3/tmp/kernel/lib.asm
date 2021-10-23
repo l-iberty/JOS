@@ -8,17 +8,10 @@ global insb
 global insw
 global insd
 global rcr0
-global rcr2
 global rcr3
 global lcr0
-global lcr2
 global lcr3
 global invlpg
-global lgdt
-global lldt
-global lidt
-global ltr
-global read_eflags
 
 
 [SECTION .text]
@@ -100,11 +93,6 @@ rcr0:
     mov   eax, cr0
     ret
 
-; uint32_t rcr2();
-rcr2:
-    mov   eax, cr2
-    ret
-
 ; uint32_t rcr3();
 rcr3:
     mov   eax, cr3
@@ -114,12 +102,6 @@ rcr3:
 lcr0:
     mov   eax, [esp+4]
     mov   cr0, eax
-    ret
-
-; void lcr2(uint32_t x);
-lcr2:
-    mov   eax, [esp+4]
-    mov   cr2, eax
     ret
 
 ; void lcr3(uint32_t x);
@@ -132,34 +114,4 @@ lcr3:
 invlpg:
     mov     eax, [esp+4]
     invlpg  [eax]
-    ret
-
-; void lgdt(void *addr)
-lgdt:
-    mov   eax, [esp+4]
-    lgdt  [eax]
-    ret
-
-; void lldt(void *addr)
-lldt:
-    mov   eax, [esp+4]
-    lldt  [eax]
-    ret
-
-; void lidt(void *addr)
-lidt:
-    mov   eax, [esp+4]
-    lidt  [eax]
-    ret
-
-; void ltr(uint16_t selector_tss);
-ltr:
-    mov   eax, [esp+4]
-    ltr   ax
-    ret
-
-; uint32_t read_eflags();
-read_eflags:
-    pushf
-    pop   eax
     ret

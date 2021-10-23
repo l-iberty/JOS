@@ -1,19 +1,17 @@
-BOOT_SRCS := boot/boot.asm boot/main.c
+BOOT_SRCDIR := boot
 
-BOOT_OBJS := $(patsubst boot/%.c, $(OBJDIR)/boot/%.o, $(BOOT_SRCS))
-BOOT_OBJS := $(patsubst boot/%.asm, $(OBJDIR)/boot/%.o, $(BOOT_OBJS))
+BOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o
 
-$(OBJDIR)/boot/%.o: boot/%.asm
+$(OBJDIR)/boot/boot.o: $(BOOT_SRCDIR)/boot.asm
 	@echo + as $@
 	@mkdir -p $(@D)
-	@$(AS) $(ASFLAGS) -Iboot/ $^ -o $@
+	@$(AS) $(ASFLAGS) -I$(BOOT_SRCDIR)/ $^ -o $@
 
 # gcc options:
 # -Os  Optimize for size.  -Os enables all -O2 optimizations that do not typically
 #      increase code size. It also performs further optimizations designed to reduce code size.
-$(OBJDIR)/boot/%.o: boot/%.c
+$(OBJDIR)/boot/main.o: $(BOOT_SRCDIR)/main.c
 	@echo + cc $@
-	@mkdir -p $(@D)
 	@$(CC) $(CFLAGS) $^ -Os -o $@
 
 # ld options:
@@ -29,4 +27,4 @@ $(OBJDIR)/boot/boot: $(BOOT_OBJS)
 	@$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 $^ -o $@.out
 	@$(OBJDUMP) -S $@.out >$@.objdump
 	@$(OBJCOPY) -S -O binary -j .text $@.out $@
-	@$(PERL) boot/sign.pl $@
+	@$(PERL) $(BOOT_SRCDIR)/sign.pl $@

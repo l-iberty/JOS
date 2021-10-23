@@ -20,7 +20,6 @@ QEMUOPTS := -drive file=$(OBJDIR)/jos.img,index=0,media=disk,format=raw -serial 
 all:
 
 include boot/Makefile
-include lib/Makefile
 include kernel/Makefile
 
 clean:

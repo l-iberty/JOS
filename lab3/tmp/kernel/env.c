@@ -3,13 +3,13 @@
 #include <include/assert.h>
 #include <include/elf.h>
 #include <include/error.h>
-#include <include/lib.h>
 #include <include/mmu.h>
 #include <include/string.h>
+#include <include/x86.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
-// #include <kernel/trap.h>
+#include <kernel/trap.h>
 
 struct Env *envs = NULL;           // All environments
 struct Env *curenv = NULL;         // The current env
@@ -114,21 +114,21 @@ void env_init(void) {
 
 // Load GDT and segment descriptors.
 void env_init_percpu(void) {
-  // lgdt(&gdt_pd);
-  // // The kernel never uses GS or FS, so we leave those set to
-  // // the user data segment.
-  // asm volatile("movw %%ax,%%gs" : : "a"(GD_UD | 3));
-  // asm volatile("movw %%ax,%%fs" : : "a"(GD_UD | 3));
-  // // The kernel does use ES, DS, and SS.  We'll change between
-  // // the kernel and user data segments as needed.
-  // asm volatile("movw %%ax,%%es" : : "a"(GD_KD));
-  // asm volatile("movw %%ax,%%ds" : : "a"(GD_KD));
-  // asm volatile("movw %%ax,%%ss" : : "a"(GD_KD));
-  // // Load the kernel text segment into CS.
-  // asm volatile("ljmp %0,$1f\n 1:\n" : : "i"(GD_KT));
-  // // For good measure, clear the local descriptor table (LDT),
-  // // since we don't use it.
-  // lldt(0);
+  lgdt(&gdt_pd);
+  // The kernel never uses GS or FS, so we leave those set to
+  // the user data segment.
+  asm volatile("movw %%ax,%%gs" : : "a"(GD_UD | 3));
+  asm volatile("movw %%ax,%%fs" : : "a"(GD_UD | 3));
+  // The kernel does use ES, DS, and SS.  We'll change between
+  // the kernel and user data segments as needed.
+  asm volatile("movw %%ax,%%es" : : "a"(GD_KD));
+  asm volatile("movw %%ax,%%ds" : : "a"(GD_KD));
+  asm volatile("movw %%ax,%%ss" : : "a"(GD_KD));
+  // Load the kernel text segment into CS.
+  asm volatile("ljmp %0,$1f\n 1:\n" : : "i"(GD_KT));
+  // For good measure, clear the local descriptor table (LDT),
+  // since we don't use it.
+  lldt(0);
 }
 
 //
@@ -228,7 +228,7 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
   env_free_list = e->env_link;
   *newenv_store = e;
 
-  printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
   return 0;
 }
 
@@ -333,7 +333,7 @@ void env_free(struct Env *e) {
   if (e == curenv) lcr3(PADDR(kern_pgdir));
 
   // Note the environment's demise.
-  printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
   // Flush all mapped pages in the user portion of the address space
   static_assert(UTOP % PTSIZE == 0);
@@ -372,7 +372,7 @@ void env_free(struct Env *e) {
 void env_destroy(struct Env *e) {
   env_free(e);
 
-  printf("Destroyed the only environment - nothing more to do!\n");
+  cprintf("Destroyed the only environment - nothing more to do!\n");
   while (1) monitor(NULL);
 }
 

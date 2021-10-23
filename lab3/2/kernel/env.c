@@ -3,13 +3,13 @@
 #include <include/assert.h>
 #include <include/elf.h>
 #include <include/error.h>
+#include <include/lib.h>
 #include <include/mmu.h>
 #include <include/string.h>
-#include <include/x86.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
-#include <kernel/trap.h>
+// #include <kernel/trap.h>
 
 struct Env *envs = NULL;           // All environments
 struct Env *curenv = NULL;         // The current env
@@ -108,6 +108,14 @@ void env_init(void) {
   // Set up envs array
   // LAB 3: Your code here.
 
+  int i;
+  for (i = NENV - 1; i >= 0; i--) {
+    envs[i].env_id = 0;
+    envs[i].env_type = ENV_FREE;
+    envs[i].env_link = env_free_list;
+    env_free_list = &envs[i];
+  }
+
   // Per-CPU part of the initialization
   env_init_percpu();
 }
@@ -146,7 +154,9 @@ static int env_setup_vm(struct Env *e) {
   struct PageInfo *p = NULL;
 
   // Allocate a page for the page directory
-  if (!(p = page_alloc(ALLOC_ZERO))) return -E_NO_MEM;
+  if (!(p = page_alloc(ALLOC_ZERO))) {
+    return -E_NO_MEM;
+  }
 
   // Now, set e->env_pgdir and initialize the page directory.
   //
@@ -228,7 +238,7 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
   env_free_list = e->env_link;
   *newenv_store = e;
 
-  cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
   return 0;
 }
 
@@ -333,7 +343,7 @@ void env_free(struct Env *e) {
   if (e == curenv) lcr3(PADDR(kern_pgdir));
 
   // Note the environment's demise.
-  cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
   // Flush all mapped pages in the user portion of the address space
   static_assert(UTOP % PTSIZE == 0);
@@ -372,7 +382,7 @@ void env_free(struct Env *e) {
 void env_destroy(struct Env *e) {
   env_free(e);
 
-  cprintf("Destroyed the only environment - nothing more to do!\n");
+  printf("Destroyed the only environment - nothing more to do!\n");
   while (1) monitor(NULL);
 }
 

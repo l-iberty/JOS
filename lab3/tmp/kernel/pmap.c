@@ -132,8 +132,6 @@ void mem_init() {
   //////////////////////////////////////////////////////////////////////
   // Make 'envs' point to an array of size 'NENV' of 'struct Env'.
   // LAB 3: Your code here.
-  envs = (struct Env *)boot_alloc(NENV * sizeof(struct Env));
-  memset(envs, 0, NENV * sizeof(struct Env));
 
   //////////////////////////////////////////////////////////////////////
   // Now that we've allocated the initial kernel data structures, we set
@@ -165,7 +163,6 @@ void mem_init() {
   //    - the new image at UENVS  -- kernel R, user R
   //    - envs itself -- kernel RW, user NONE
   // LAB 3: Your code here.
-  boot_map_region(kern_pgdir, UENVS, ROUNDUP(NENV * sizeof(struct Env), PGSIZE), PADDR(envs), PTE_U);
 
   //////////////////////////////////////////////////////////////////////
   // Use the physical memory that 'bootstack' refers to as the kernel
@@ -257,7 +254,6 @@ void page_init(void) {
   extern char entry[], end[];
   physaddr_t addr, kern_entry, kern_end, kern_pgdir_addr;
   physaddr_t pages_start, pages_end;
-  physaddr_t envs_start, envs_end;
 
   kern_entry = ROUNDDOWN((PADDR(entry)), PGSIZE);
   kern_end = ROUNDUP((PADDR(end)), PGSIZE);
@@ -265,15 +261,12 @@ void page_init(void) {
   kern_pgdir_addr = ROUNDDOWN((PADDR(kern_pgdir)), PGSIZE);
   pages_start = ROUNDDOWN((PADDR(pages)), PGSIZE);
   pages_end = ROUNDDOWN((PADDR(&pages[npages])), PGSIZE);
-  envs_start = ROUNDDOWN((PADDR(envs)), PGSIZE);
-  envs_end = ROUNDDOWN((PADDR(&envs[NENV])), PGSIZE);
 
   printf("======== page_init() start ========\n");
   printf("  kernel: entry: %x  end: %x (phys)\n", kern_entry, kern_end);
   printf("  kern_pgdir: %x (phys)\n", PADDR(kern_pgdir));
   printf("  npages: %d  npages_basemem: %d\n", npages, npages_basemem);
   printf("  pages[] [%x, %x) (phys)\n", PADDR(pages), PADDR(&pages[npages]));
-  printf("  envs[] [%x, %x) (phys)\n", PADDR(envs), PADDR(&envs[NENV]));
 
   for (i = 0, addr = 0; i < npages; i++, addr += PGSIZE) {
     pages[i].pp_ref = 0;
@@ -288,8 +281,6 @@ void page_init(void) {
       } else if (addr == kern_pgdir_addr) { /* kern_pgdir */
         pages[i].pp_ref = 1;
       } else if (addr >= pages_start && addr < pages_end) { /* pages[] */
-        pages[i].pp_ref = 1;
-      } else if (addr >= envs_start && addr < envs_end) { /* envs[] */
         pages[i].pp_ref = 1;
       }
     }
@@ -847,16 +838,14 @@ static void check_kern_pgdir(void) {
       case PDX(UVPT):
       case PDX(KSTACKTOP - 1):
       case PDX(UPAGES):
-      case PDX(UENVS):
         assert(pgdir[i] & PTE_P);
         break;
       default:
         if (i >= PDX(KERNBASE)) {
           assert(pgdir[i] & PTE_P);
           assert(pgdir[i] & PTE_W);
-        } else {
+        } else
           assert(pgdir[i] == 0);
-        }
         break;
     }
   }

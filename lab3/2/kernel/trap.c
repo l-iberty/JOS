@@ -1,6 +1,6 @@
 #include <include/assert.h>
+#include <include/lib.h>
 #include <include/mmu.h>
-#include <include/x86.h>
 #include <kernel/console.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
@@ -67,8 +67,7 @@ void trap_init_percpu(void) {
   ts.ts_iomb = sizeof(struct Taskstate);
 
   // Initialize the TSS slot of the gdt.
-  gdt[GD_TSS0 >> 3] =
-      SEG16(STS_T32A, (uint32_t)(&ts), sizeof(struct Taskstate) - 1, 0);
+  gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t)(&ts), sizeof(struct Taskstate) - 1, 0);
   gdt[GD_TSS0 >> 3].sd_s = 0;
 
   // Load the TSS selector (like other segment selectors, the
@@ -80,44 +79,42 @@ void trap_init_percpu(void) {
 }
 
 void print_trapframe(struct Trapframe *tf) {
-  cprintf("TRAP frame at %p\n", tf);
+  printf("TRAP frame at %p\n", tf);
   print_regs(&tf->tf_regs);
-  cprintf("  es   0x----%04x\n", tf->tf_es);
-  cprintf("  ds   0x----%04x\n", tf->tf_ds);
-  cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
+  printf("  es   0x----%04x\n", tf->tf_es);
+  printf("  ds   0x----%04x\n", tf->tf_ds);
+  printf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
   // If this trap was a page fault that just happened
   // (so %cr2 is meaningful), print the faulting linear address.
-  if (tf == last_tf && tf->tf_trapno == T_PGFLT)
-    cprintf("  cr2  0x%08x\n", rcr2());
-  cprintf("  err  0x%08x", tf->tf_err);
+  if (tf == last_tf && tf->tf_trapno == T_PGFLT) printf("  cr2  0x%08x\n", rcr2());
+  printf("  err  0x%08x", tf->tf_err);
   // For page faults, print decoded fault error code:
   // U/K=fault occurred in user/kernel mode
   // W/R=a write/read caused the fault
   // PR=a protection violation caused the fault (NP=page not present).
   if (tf->tf_trapno == T_PGFLT)
-    cprintf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel",
-            tf->tf_err & 2 ? "write" : "read",
-            tf->tf_err & 1 ? "protection" : "not-present");
+    printf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel", tf->tf_err & 2 ? "write" : "read",
+           tf->tf_err & 1 ? "protection" : "not-present");
   else
-    cprintf("\n");
-  cprintf("  eip  0x%08x\n", tf->tf_eip);
-  cprintf("  cs   0x----%04x\n", tf->tf_cs);
-  cprintf("  flag 0x%08x\n", tf->tf_eflags);
+    printf("\n");
+  printf("  eip  0x%08x\n", tf->tf_eip);
+  printf("  cs   0x----%04x\n", tf->tf_cs);
+  printf("  flag 0x%08x\n", tf->tf_eflags);
   if ((tf->tf_cs & 3) != 0) {
-    cprintf("  esp  0x%08x\n", tf->tf_esp);
-    cprintf("  ss   0x----%04x\n", tf->tf_ss);
+    printf("  esp  0x%08x\n", tf->tf_esp);
+    printf("  ss   0x----%04x\n", tf->tf_ss);
   }
 }
 
 void print_regs(struct PushRegs *regs) {
-  cprintf("  edi  0x%08x\n", regs->reg_edi);
-  cprintf("  esi  0x%08x\n", regs->reg_esi);
-  cprintf("  ebp  0x%08x\n", regs->reg_ebp);
-  cprintf("  oesp 0x%08x\n", regs->reg_oesp);
-  cprintf("  ebx  0x%08x\n", regs->reg_ebx);
-  cprintf("  edx  0x%08x\n", regs->reg_edx);
-  cprintf("  ecx  0x%08x\n", regs->reg_ecx);
-  cprintf("  eax  0x%08x\n", regs->reg_eax);
+  printf("  edi  0x%08x\n", regs->reg_edi);
+  printf("  esi  0x%08x\n", regs->reg_esi);
+  printf("  ebp  0x%08x\n", regs->reg_ebp);
+  printf("  oesp 0x%08x\n", regs->reg_oesp);
+  printf("  ebx  0x%08x\n", regs->reg_ebx);
+  printf("  edx  0x%08x\n", regs->reg_edx);
+  printf("  ecx  0x%08x\n", regs->reg_ecx);
+  printf("  eax  0x%08x\n", regs->reg_eax);
 }
 
 static void trap_dispatch(struct Trapframe *tf) {
@@ -144,7 +141,7 @@ void trap(struct Trapframe *tf) {
   // the interrupt path.
   assert(!(read_eflags() & FL_IF));
 
-  cprintf("Incoming TRAP frame at %p\n", tf);
+  printf("Incoming TRAP frame at %p\n", tf);
 
   if ((tf->tf_cs & 3) == 3) {
     // Trapped from user mode.
@@ -184,8 +181,7 @@ void page_fault_handler(struct Trapframe *tf) {
   // the page fault happened in user mode.
 
   // Destroy the environment that caused the fault.
-  cprintf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va,
-          tf->tf_eip);
+  printf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va, tf->tf_eip);
   print_trapframe(tf);
   env_destroy(curenv);
 }

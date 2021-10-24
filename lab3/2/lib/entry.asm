@@ -10,26 +10,27 @@ global uvpt
 global uvpd
     uvpd equ (UVPT+(UVPT>>12)*4)
 
-ENVS   equ 1024
-UPAGES equ 0EF000000h
-UVPT   equ 0EF400000h
+ENVS        equ 1024
+UPAGES      equ 0xEF000000
+UVPT        equ 0xEF400000
+USTACKTOP   equ 0xEEBFE000
 
 ; Entrypoint - this is where the kernel (or our parent environment)
 ; starts us running when we are initially loaded into a new environment.
 [SECTION .text]
 global _start
 _start:
-	; See if we were started with arguments on the stack
-	cmp esp, USTACKTOP 
-	jne args_exist
+    ; See if we were started with arguments on the stack
+    cmp esp, USTACKTOP
+    jne .args_exist
 
-	; If not, push dummy argc/argv arguments.
-	; This happens when we are loaded by the kernel,
-	; because the kernel does not know about passing arguments.
-	push dword 0
-	push dword 0
+    ; If not, push dummy argc/argv arguments.
+    ; This happens when we are loaded by the kernel,
+    ; because the kernel does not know about passing arguments.
+    push dword 0
+    push dword 0
 
-args_exist:
+.args_exist:
 extern libmain
-	call libmain
+    call libmain
     jmp $

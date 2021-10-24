@@ -11,7 +11,7 @@
  *
  * @return the resulting string
  */
-static char* itoa(unsigned int val, int base, char **ps) {
+static char *itoa(unsigned int val, int base, char **ps) {
   char *res = *ps;
   unsigned int m = val % base;
   unsigned int n = val / base;
@@ -55,7 +55,7 @@ void vsprintf(char *buf, const char *fmt, va_list ap) {
           p += strlen(s);
           break;
         case 's':
-          q = va_arg(ap, char*);
+          q = va_arg(ap, char *);
           strcpy(p, q);
           p += strlen(q);
           break;

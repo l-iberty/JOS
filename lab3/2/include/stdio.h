@@ -6,9 +6,9 @@
 // lib/vsprintf.c
 void vsprintf(char *buf, const char *fmt, va_list ap);
 
-// lib/printf.c
-void printf(const char *fmt, ...);
-void vprintf(const char *fmt, va_list ap);
+// kernel/kprintf.c
+void kprintf(const char *fmt, ...);
+void vkprintf(const char *fmt, va_list ap);
 
 // lib/readline.c
 char *readline(const char *prompt);

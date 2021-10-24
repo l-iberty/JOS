@@ -26,7 +26,7 @@ void i386_init() {
   // Can't call cprintf until after we do this!
   cons_init();
 
-  printf("6828 decimal is %o octal!\n", 6828);
+  kprintf("6828 decimal is %o octal!\n", 6828);
 
   // Lab 2 memory management initialization functions
   mem_init();
@@ -62,9 +62,9 @@ void _panic(const char *file, int line, const char *fmt, ...) {
   asm volatile("cli; cld");
 
   va_start(ap, fmt);
-  printf("kernel panic at %s:%d: ", file, line);
-  vprintf(fmt, ap);
-  printf("\n");
+  kprintf("kernel panic at %s:%d: ", file, line);
+  vkprintf(fmt, ap);
+  kprintf("\n");
   va_end(ap);
 
 dead:
@@ -79,8 +79,8 @@ void _warn(const char *file, int line, const char *fmt, ...) {
   va_list ap;
 
   va_start(ap, fmt);
-  printf("kernel warning at %s:%d: ", file, line);
-  vprintf(fmt, ap);
-  printf("\n");
+  kprintf("kernel warning at %s:%d: ", file, line);
+  vkprintf(fmt, ap);
+  kprintf("\n");
   va_end(ap);
 }

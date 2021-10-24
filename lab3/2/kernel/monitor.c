@@ -33,7 +33,7 @@ int mon_help(int argc, char **argv, struct Trapframe *tf) {
   int i;
 
   for (i = 0; i < ARRAY_SIZE(commands); i++) {
-    printf("%s - %s\n", commands[i].name, commands[i].desc);
+    kprintf("%s - %s\n", commands[i].name, commands[i].desc);
   }
   return 0;
 }
@@ -41,13 +41,13 @@ int mon_help(int argc, char **argv, struct Trapframe *tf) {
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   extern char _start[], entry[], etext[], edata[], end[];
 
-  printf("Special kernel symbols:\n");
-  printf("  _start                    %x (phys)\n", _start);
-  printf("  entry  %x (virt)  %x (phys)\n", entry, entry - KERNBASE);
-  printf("  etext  %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
-  printf("  edata  %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
-  printf("  end    %x (virt)  %x (phys)\n", end, end - KERNBASE);
-  printf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - entry, 1024) / 1024);
+  kprintf("Special kernel symbols:\n");
+  kprintf("  _start                    %x (phys)\n", _start);
+  kprintf("  entry  %x (virt)  %x (phys)\n", entry, entry - KERNBASE);
+  kprintf("  etext  %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
+  kprintf("  edata  %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
+  kprintf("  end    %x (virt)  %x (phys)\n", end, end - KERNBASE);
+  kprintf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - entry, 1024) / 1024);
 
   return 0;
 }
@@ -61,7 +61,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
   char perm_buf[100], *p;
 
   if (argc != 3) {
-    printf("Usage: showmappings va1 va2 (hex, page-aligned)\n");
+    kprintf("Usage: showmappings va1 va2 (hex, page-aligned)\n");
     return 1;
   }
 
@@ -83,7 +83,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
       }
     }
     if (pa == 0 && perm == 0) {
-      printf("%x (virt) -> ??? (phys) ??? (perm)\n", va);
+      kprintf("%x (virt) -> ??? (phys) ??? (perm)\n", va);
     } else {
       p = perm_buf;
       if (perm & PTE_P) {
@@ -122,14 +122,14 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
         strcpy(p, " Global");
         p += strlen(p);
       }
-      printf("%x (virt) -> %x (phys) %s (perm)\n", va, pa, perm_buf);
+      kprintf("%x (virt) -> %x (phys) %s (perm)\n", va, pa, perm_buf);
     }
   }
   return 0;
 }
 
 int mon_reboot(int argc, char **argv, struct Trapframe *tf) {
-  printf("Rebooting...");
+  kprintf("Rebooting...");
   outb(0x92, 0x03);
 
   return 0;
@@ -155,7 +155,7 @@ static int runcmd(char *buf, struct Trapframe *tf) {
 
     // save and scan past next arg
     if (argc == MAXARGS - 1) {
-      printf("Too many arguments (max %d)\n", MAXARGS);
+      kprintf("Too many arguments (max %d)\n", MAXARGS);
       return 0;
     }
     argv[argc++] = buf;
@@ -170,15 +170,15 @@ static int runcmd(char *buf, struct Trapframe *tf) {
       return commands[i].func(argc, argv, tf);
     }
   }
-  printf("Unknown command '%s'\n", argv[0]);
+  kprintf("Unknown command '%s'\n", argv[0]);
   return 0;
 }
 
 void monitor(struct Trapframe *tf) {
   char *buf;
 
-  printf("Welcome to the JOS kernel monitor!\n");
-  printf("Type 'help' for a list of commands.\n");
+  kprintf("Welcome to the JOS kernel monitor!\n");
+  kprintf("Type 'help' for a list of commands.\n");
 
   while (1) {
     buf = readline("K> ");

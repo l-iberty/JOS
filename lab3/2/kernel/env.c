@@ -176,6 +176,9 @@ static int env_setup_vm(struct Env *e) {
 
   // LAB 3: Your code here.
 
+  p->pp_ref++;
+  e->env_pgdir = page2kva(p);
+
   // UVPT maps the env's own page table read-only.
   // Permissions: kernel R, user R
   e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
@@ -196,15 +199,20 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
   int r;
   struct Env *e;
 
-  if (!(e = env_free_list)) return -E_NO_FREE_ENV;
+  if (!(e = env_free_list)) {
+    return -E_NO_FREE_ENV;
+  }
 
   // Allocate and set up the page directory for this environment.
-  if ((r = env_setup_vm(e)) < 0) return r;
+  if ((r = env_setup_vm(e)) < 0) {
+    return r;
+  }
 
   // Generate an env_id for this environment.
   generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
-  if (generation <= 0)  // Don't create a negative env_id.
+  if (generation <= 0) {  // Don't create a negative env_id.
     generation = 1 << ENVGENSHIFT;
+  }
   e->env_id = generation | (e - envs);
 
   // Set the basic status variables.
@@ -238,7 +246,7 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
   env_free_list = e->env_link;
   *newenv_store = e;
 
-  printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  kprintf("[%x] new env %x\n", curenv ? curenv->env_id : 0, e->env_id);
   return 0;
 }
 
@@ -257,6 +265,18 @@ static void region_alloc(struct Env *e, void *va, size_t len) {
   //   'va' and 'len' values that are not page-aligned.
   //   You should round va down, and round (va + len) up.
   //   (Watch out for corner-cases!)
+
+  int i;
+  struct PageInfo *pp;
+
+  va = ROUNDDOWN(va, PGSIZE);
+  len = ROUNDUP(len, PGSIZE);
+
+  for (i = 0; i < len; i += PGSIZE) {
+    pp = page_alloc(0);
+    assert(pp);
+    assert(0 == page_insert(e->env_pgdir, pp, va + i, PTE_U | PTE_W));
+  }
 }
 
 //
@@ -312,10 +332,30 @@ static void load_icode(struct Env *e, uint8_t *binary) {
 
   // LAB 3: Your code here.
 
+  struct Elf *elf;
+  struct Proghdr *ph, *eph;
+  struct PageInfo *pp;
+
+  elf = (struct Elf *)binary;
+  assert(elf->e_magic == ELF_MAGIC);
+
+  ph = (struct Proghdr *)(binary + elf->e_phoff);
+  eph = ph + elf->e_phnum;
+  for (; ph < eph; ph++) {
+    if (ph->p_type != ELF_PROG_LOAD) continue;
+    pp = page_alloc(ALLOC_ZERO);
+    assert(pp);
+    assert(0 == page_insert(e->env_pgdir, pp, (void *)ph->p_va, PTE_U | PTE_W));
+    memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+  }
+
   // Now map one page for the program's initial stack
   // at virtual address USTACKTOP - PGSIZE.
 
   // LAB 3: Your code here.
+  pp = page_alloc(ALLOC_ZERO);
+  assert(pp);
+  assert(0 == page_insert(e->env_pgdir, pp, (void *)(USTACKTOP - PGSIZE), PTE_U | PTE_W));
 }
 
 //
@@ -327,6 +367,7 @@ static void load_icode(struct Env *e, uint8_t *binary) {
 //
 void env_create(uint8_t *binary, enum EnvType type) {
   // LAB 3: Your code here.
+  assert(0 == env_alloc(&env_free_list->env_link, 0));
 }
 
 //
@@ -343,7 +384,7 @@ void env_free(struct Env *e) {
   if (e == curenv) lcr3(PADDR(kern_pgdir));
 
   // Note the environment's demise.
-  printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+  kprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
   // Flush all mapped pages in the user portion of the address space
   static_assert(UTOP % PTSIZE == 0);
@@ -357,7 +398,9 @@ void env_free(struct Env *e) {
 
     // unmap all PTEs in this page table
     for (pteno = 0; pteno <= PTX(~0); pteno++) {
-      if (pt[pteno] & PTE_P) page_remove(e->env_pgdir, PGADDR(pdeno, pteno, 0));
+      if (pt[pteno] & PTE_P) {
+        page_remove(e->env_pgdir, PGADDR(pdeno, pteno, 0));
+      }
     }
 
     // free the page table itself
@@ -382,8 +425,10 @@ void env_free(struct Env *e) {
 void env_destroy(struct Env *e) {
   env_free(e);
 
-  printf("Destroyed the only environment - nothing more to do!\n");
-  while (1) monitor(NULL);
+  kprintf("Destroyed the only environment - nothing more to do!\n");
+  while (1) {
+    monitor(NULL);
+  }
 }
 
 //

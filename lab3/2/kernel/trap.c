@@ -79,42 +79,42 @@ void trap_init_percpu(void) {
 }
 
 void print_trapframe(struct Trapframe *tf) {
-  printf("TRAP frame at %p\n", tf);
+  kprintf("TRAP frame at %p\n", tf);
   print_regs(&tf->tf_regs);
-  printf("  es   0x----%04x\n", tf->tf_es);
-  printf("  ds   0x----%04x\n", tf->tf_ds);
-  printf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
+  kprintf("  es   0x----%04x\n", tf->tf_es);
+  kprintf("  ds   0x----%04x\n", tf->tf_ds);
+  kprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
   // If this trap was a page fault that just happened
   // (so %cr2 is meaningful), print the faulting linear address.
-  if (tf == last_tf && tf->tf_trapno == T_PGFLT) printf("  cr2  0x%08x\n", rcr2());
-  printf("  err  0x%08x", tf->tf_err);
+  if (tf == last_tf && tf->tf_trapno == T_PGFLT) kprintf("  cr2  0x%08x\n", rcr2());
+  kprintf("  err  0x%08x", tf->tf_err);
   // For page faults, print decoded fault error code:
   // U/K=fault occurred in user/kernel mode
   // W/R=a write/read caused the fault
   // PR=a protection violation caused the fault (NP=page not present).
   if (tf->tf_trapno == T_PGFLT)
-    printf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel", tf->tf_err & 2 ? "write" : "read",
+    kprintf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel", tf->tf_err & 2 ? "write" : "read",
            tf->tf_err & 1 ? "protection" : "not-present");
   else
-    printf("\n");
-  printf("  eip  0x%08x\n", tf->tf_eip);
-  printf("  cs   0x----%04x\n", tf->tf_cs);
-  printf("  flag 0x%08x\n", tf->tf_eflags);
+    kprintf("\n");
+  kprintf("  eip  0x%08x\n", tf->tf_eip);
+  kprintf("  cs   0x----%04x\n", tf->tf_cs);
+  kprintf("  flag 0x%08x\n", tf->tf_eflags);
   if ((tf->tf_cs & 3) != 0) {
-    printf("  esp  0x%08x\n", tf->tf_esp);
-    printf("  ss   0x----%04x\n", tf->tf_ss);
+    kprintf("  esp  0x%08x\n", tf->tf_esp);
+    kprintf("  ss   0x----%04x\n", tf->tf_ss);
   }
 }
 
 void print_regs(struct PushRegs *regs) {
-  printf("  edi  0x%08x\n", regs->reg_edi);
-  printf("  esi  0x%08x\n", regs->reg_esi);
-  printf("  ebp  0x%08x\n", regs->reg_ebp);
-  printf("  oesp 0x%08x\n", regs->reg_oesp);
-  printf("  ebx  0x%08x\n", regs->reg_ebx);
-  printf("  edx  0x%08x\n", regs->reg_edx);
-  printf("  ecx  0x%08x\n", regs->reg_ecx);
-  printf("  eax  0x%08x\n", regs->reg_eax);
+  kprintf("  edi  0x%08x\n", regs->reg_edi);
+  kprintf("  esi  0x%08x\n", regs->reg_esi);
+  kprintf("  ebp  0x%08x\n", regs->reg_ebp);
+  kprintf("  oesp 0x%08x\n", regs->reg_oesp);
+  kprintf("  ebx  0x%08x\n", regs->reg_ebx);
+  kprintf("  edx  0x%08x\n", regs->reg_edx);
+  kprintf("  ecx  0x%08x\n", regs->reg_ecx);
+  kprintf("  eax  0x%08x\n", regs->reg_eax);
 }
 
 static void trap_dispatch(struct Trapframe *tf) {
@@ -141,7 +141,7 @@ void trap(struct Trapframe *tf) {
   // the interrupt path.
   assert(!(read_eflags() & FL_IF));
 
-  printf("Incoming TRAP frame at %p\n", tf);
+  kprintf("Incoming TRAP frame at %p\n", tf);
 
   if ((tf->tf_cs & 3) == 3) {
     // Trapped from user mode.
@@ -181,7 +181,7 @@ void page_fault_handler(struct Trapframe *tf) {
   // the page fault happened in user mode.
 
   // Destroy the environment that caused the fault.
-  printf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va, tf->tf_eip);
+  kprintf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va, tf->tf_eip);
   print_trapframe(tf);
   env_destroy(curenv);
 }

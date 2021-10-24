@@ -4,6 +4,8 @@ TOP := .
 CC := gcc
 AS := nasm
 LD := ld
+AR := ar
+NM := nm
 OBJCOPY := objcopy
 OBJDUMP := objdump
 PERL    := perl
@@ -20,8 +22,9 @@ QEMUOPTS := -drive file=$(OBJDIR)/jos.img,index=0,media=disk,format=raw -serial 
 all:
 
 include boot/Makefile
-include lib/Makefile
 include kernel/Makefile
+include lib/Makefile
+include user/Makefile
 
 clean:
 	rm -r $(OBJDIR)

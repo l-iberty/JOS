@@ -4,7 +4,7 @@ BOOT_OBJS := $(patsubst boot/%.c, $(OBJDIR)/boot/%.o, $(BOOT_SRCS))
 BOOT_OBJS := $(patsubst boot/%.asm, $(OBJDIR)/boot/%.o, $(BOOT_OBJS))
 
 $(OBJDIR)/boot/%.o: boot/%.asm
-	@echo + as $@
+	@echo + as $<
 	@mkdir -p $(@D)
 	@$(AS) $(ASFLAGS) -Iboot/ $^ -o $@
 
@@ -12,7 +12,7 @@ $(OBJDIR)/boot/%.o: boot/%.asm
 # -Os  Optimize for size.  -Os enables all -O2 optimizations that do not typically
 #      increase code size. It also performs further optimizations designed to reduce code size.
 $(OBJDIR)/boot/%.o: boot/%.c
-	@echo + cc $@
+	@echo + cc $<
 	@mkdir -p $(@D)
 	@$(CC) $(CFLAGS) $^ -Os -o $@
 

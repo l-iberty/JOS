@@ -143,7 +143,7 @@ lgdt:
 ; void lldt(void *addr)
 lldt:
     mov   eax, [esp+4]
-    lldt  [eax]
+    lldt  ax
     ret
 
 ; void lidt(void *addr)

@@ -1,5 +1,3 @@
-#include <include/elf.h>
-#include <include/lib.h>
 #include <include/memlayout.h>
 #include <include/mmu.h>
 #include <include/stdarg.h>

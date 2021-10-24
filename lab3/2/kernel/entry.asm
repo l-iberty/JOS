@@ -1,11 +1,12 @@
 extern entry_pgdir
 extern i386_init
 
-KERNBASE equ 0F0000000h
-CR0_PE   equ 00000001h ; Protection Enable
-CR0_WP   equ 00010000h ; Write Protect
-CR0_PG   equ 80000000h ; Paging
-KSTKSIZE equ 4096*8
+PGSIZE   equ 0x1000
+KERNBASE equ 0xF0000000
+CR0_PE   equ 0x00000001 ; Protection Enable
+CR0_WP   equ 0x00010000 ; Write Protect
+CR0_PG   equ 0x80000000 ; Paging
+KSTKSIZE equ PGSIZE*8
 
 %define RELOC(x) ((x) - KERNBASE)
 
@@ -54,7 +55,7 @@ entry:
     jmp $
 
 [SECTION .data]
-ALIGN 32
+ALIGN 0x1000
 global bootstack
 bootstack:
     times KSTKSIZE/4 dd 0

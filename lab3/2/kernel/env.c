@@ -267,15 +267,15 @@ static void region_alloc(struct Env *e, void *va, size_t len) {
   //   (Watch out for corner-cases!)
 
   int i;
-  struct PageInfo *pp;
+  struct PageInfo *p;
 
   va = ROUNDDOWN(va, PGSIZE);
   len = ROUNDUP(len, PGSIZE);
 
   for (i = 0; i < len; i += PGSIZE) {
-    pp = page_alloc(0);
-    assert(pp);
-    assert(0 == page_insert(e->env_pgdir, pp, va + i, PTE_U | PTE_W));
+    p = page_alloc(0);
+    assert(p);
+    assert(0 == page_insert(e->env_pgdir, p, va + i, PTE_U | PTE_W));
   }
 }
 
@@ -334,7 +334,7 @@ static void load_icode(struct Env *e, uint8_t *binary) {
 
   struct Elf *elf;
   struct Proghdr *ph, *eph;
-  struct PageInfo *pp;
+  struct PageInfo *p;
 
   elf = (struct Elf *)binary;
   assert(elf->e_magic == ELF_MAGIC);
@@ -343,19 +343,21 @@ static void load_icode(struct Env *e, uint8_t *binary) {
   eph = ph + elf->e_phnum;
   for (; ph < eph; ph++) {
     if (ph->p_type != ELF_PROG_LOAD) continue;
-    pp = page_alloc(ALLOC_ZERO);
-    assert(pp);
-    assert(0 == page_insert(e->env_pgdir, pp, (void *)ph->p_va, PTE_U | PTE_W));
+    p = page_alloc(ALLOC_ZERO);
+    assert(p);
+    assert(0 == page_insert(e->env_pgdir, p, (void *)ph->p_va, PTE_U | PTE_W));
+    assert(0 == page_insert(kern_pgdir, p, (void *)ph->p_va, PTE_U | PTE_W));
     memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+    page_remove(kern_pgdir, (void *)ph->p_va);
   }
 
   // Now map one page for the program's initial stack
   // at virtual address USTACKTOP - PGSIZE.
 
   // LAB 3: Your code here.
-  pp = page_alloc(ALLOC_ZERO);
-  assert(pp);
-  assert(0 == page_insert(e->env_pgdir, pp, (void *)(USTACKTOP - PGSIZE), PTE_U | PTE_W));
+  p = page_alloc(ALLOC_ZERO);
+  assert(p);
+  assert(0 == page_insert(e->env_pgdir, p, (void *)(USTACKTOP - PGSIZE), PTE_U | PTE_W));
 }
 
 //
@@ -367,7 +369,10 @@ static void load_icode(struct Env *e, uint8_t *binary) {
 //
 void env_create(uint8_t *binary, enum EnvType type) {
   // LAB 3: Your code here.
-  assert(0 == env_alloc(&env_free_list->env_link, 0));
+  struct Env *e = env_free_list;
+  assert(0 == env_alloc(&e, 0));
+  load_icode(e, binary);
+  e->env_type = type;
 }
 
 //

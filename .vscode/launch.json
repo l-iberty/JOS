@@ -11,7 +11,7 @@
 			"remote": true,
 			"target": "localhost:1234",
 			"cwd": "${workspaceRoot}",
-			"executable": "${workspaceRoot}/lab3/1/obj/kernel/kernel",
+			"executable": "${workspaceRoot}/lab3/2/obj/kernel/kernel",
 			"valuesFormatting": "parseText"
 		}
 	]

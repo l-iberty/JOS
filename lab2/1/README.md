@@ -23,7 +23,8 @@
 	]
 }
 ```
-3. `make qemu-gdb`准备好后，在 vscode 里`F5`便可以开启调试并命中断点：
+3. 给 gcc 加上`-g3`编译选项
+4. `make qemu-gdb`准备好后，在 vscode 里`F5`便可以开启调试并命中断点：
 ![](imgs/vscode-gdb.png)
 
 但是由于未知原因，有的变量无法在`VARIABLES`窗口查看，还是要在`DEBUG CONSOLE`里使用gdb命令进行操作。

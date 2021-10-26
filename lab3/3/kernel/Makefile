@@ -10,6 +10,7 @@ KERNEL_SRCS := kernel/console.c \
 	kernel/monitor.c \
 	kernel/pmap.c \
 	kernel/trap.c \
+	kernel/trapentry.asm \
 	lib/readline.c \
 	lib/string.c \
 	lib/vsprintf.c

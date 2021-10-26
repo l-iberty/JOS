@@ -54,6 +54,32 @@ void trap_init(void) {
 
   // LAB 3: Your code here.
 
+  static const void *const excentries[] = {divide_error,
+                                           debug,
+                                           non_maskable_interrupt,
+                                           breakpoint,
+                                           overflow,
+                                           bound_range_exceeded,
+                                           invalid_opcode,
+                                           device_not_avaliable,
+                                           double_fault,
+                                           coprocessor_segment_overrun,
+                                           invalid_tss,
+                                           segment_not_present,
+                                           stack_fault,
+                                           general_fault,
+                                           page_fault,
+                                           NULL,
+                                           fpu_float_point_error,
+                                           alignment_check,
+                                           machine_check,
+                                           simd_float_point_exception};
+
+  int i;
+  for (i = 0; i < ARRAY_SIZE(excentries); i++) {
+    SETGATE(idt[i], 0, GD_KT, excentries[i], 0);
+  }
+
   // Per-CPU setup
   trap_init_percpu();
 }
@@ -81,8 +107,8 @@ void trap_init_percpu(void) {
 void print_trapframe(struct Trapframe *tf) {
   printf("TRAP frame at %p\n", tf);
   print_regs(&tf->tf_regs);
-  printf("  es   0x----%04x\n", tf->tf_es);
-  printf("  ds   0x----%04x\n", tf->tf_ds);
+  printf("  es   0x%x\n", tf->tf_es);
+  printf("  ds   0x%x\n", tf->tf_ds);
   printf("  trap 0x%x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
   // If this trap was a page fault that just happened
   // (so %cr2 is meaningful), print the faulting linear address.
@@ -96,16 +122,16 @@ void print_trapframe(struct Trapframe *tf) {
   // PR=a protection violation caused the fault (NP=page not present).
   if (tf->tf_trapno == T_PGFLT) {
     printf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel", tf->tf_err & 2 ? "write" : "read",
-            tf->tf_err & 1 ? "protection" : "not-present");
+           tf->tf_err & 1 ? "protection" : "not-present");
   } else {
     printf("\n");
   }
   printf("  eip  0x%x\n", tf->tf_eip);
-  printf("  cs   0x----%04x\n", tf->tf_cs);
+  printf("  cs   0x%x\n", tf->tf_cs);
   printf("  flag 0x%x\n", tf->tf_eflags);
   if ((tf->tf_cs & 3) != 0) {
     printf("  esp  0x%x\n", tf->tf_esp);
-    printf("  ss   0x----%04x\n", tf->tf_ss);
+    printf("  ss   0x%x\n", tf->tf_ss);
   }
 }
 

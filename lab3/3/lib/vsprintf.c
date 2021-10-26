@@ -46,9 +46,10 @@ void vsprintf(char *buf, const char *fmt, va_list ap) {
           strcpy(p, s);
           p += strlen(s);
           break;
+        case 'p':
+          strcpy(p, "0x");
+          p += 2;
         case 'x':
-          // strcpy(p, "0x");
-          // p += 2;
           v = va_arg(ap, unsigned int);
           s = itoa(v, 16, &s);
           strcpy(p, s);

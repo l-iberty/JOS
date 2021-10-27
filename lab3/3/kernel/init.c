@@ -34,7 +34,11 @@ void i386_init() {
   trap_init();
 
   // Touch all you want.
-  ENV_CREATE(user_hello, ENV_TYPE_USER);
+  // ENV_CREATE(user_hello, ENV_TYPE_USER);
+  ENV_CREATE(user_divzero, ENV_TYPE_USER);
+  // ENV_CREATE(user_badsegment, ENV_TYPE_USER);
+  // ENV_CREATE(user_softint, ENV_TYPE_USER);
+  // ENV_CREATE(user_invlopcode, ENV_TYPE_USER);
 
   // We only have one user environment for now, so just run it.
   env_run(&envs[0]);

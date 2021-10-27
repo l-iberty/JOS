@@ -350,16 +350,16 @@ static void load_icode(struct Env *e, uint8_t *binary) {
   elf = (struct Elf *)binary;
   assert(elf->e_magic == ELF_MAGIC);
 
+  lcr3(PADDR(e->env_pgdir));
+
   ph = (struct Proghdr *)(binary + elf->e_phoff);
   eph = ph + elf->e_phnum;
   for (; ph < eph; ph++) {
     if (ph->p_type != ELF_PROG_LOAD) continue;
-    p = page_alloc(ALLOC_ZERO);
-    assert(p);
-    assert(0 == page_insert(e->env_pgdir, p, (void *)ph->p_va, PTE_U | PTE_W));
-    assert(0 == page_insert(kern_pgdir, p, (void *)ph->p_va, PTE_U | PTE_W));
+
+    region_alloc(e, (void *)ph->p_va, ph->p_memsz);
     memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
-    page_remove(kern_pgdir, (void *)ph->p_va);
+    memset((void *)ph->p_va + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
   }
   e->env_tf.tf_eip = (uint32_t)elf->e_entry;
 
@@ -367,9 +367,7 @@ static void load_icode(struct Env *e, uint8_t *binary) {
   // at virtual address USTACKTOP - PGSIZE.
 
   // LAB 3: Your code here.
-  p = page_alloc(ALLOC_ZERO);
-  assert(p);
-  assert(0 == page_insert(e->env_pgdir, p, (void *)(USTACKTOP - PGSIZE), PTE_U | PTE_W));
+  region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
 }
 
 //

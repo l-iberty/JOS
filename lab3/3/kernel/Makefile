@@ -15,7 +15,11 @@ KERNEL_SRCS := kernel/console.c \
 	lib/string.c \
 	lib/vsprintf.c
 
-KERNEL_BINS := user/hello
+KERNEL_BINS := user/hello \
+	user/divzero \
+	user/badsegment \
+	user/softint \
+	user/invlopcode
 
 KERNEL_OBJS := $(patsubst kernel/%.c, $(OBJDIR)/kernel/%.o, $(KERNEL_SRCS))
 KERNEL_OBJS := $(patsubst kernel/%.asm, $(OBJDIR)/kernel/%.o, $(KERNEL_OBJS))

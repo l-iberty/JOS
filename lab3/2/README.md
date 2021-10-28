@@ -187,6 +187,7 @@ struct Pseudodesc gdt_pd = {sizeof(gdt) - 1, (unsigned long)gdt};
 对于“一致/非一致代码段”的辨析此处从略。
 
 ##### `env_setup_vm()`
+`UTOP`以上的地址映射在所有用户进程中都是相同的，`UTOP`以下的是用户进程的私有地址空间。注意：`UTOP`之上的虚拟地址有的是不对用户进程开放的，比如`KERNBASE`以上禁止用户进程的读写，这段虚拟地址没有设置`PTE_U`标志位。
 
 ##### `region_alloc()`
 

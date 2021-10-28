@@ -36,5 +36,6 @@ void fpu_float_point_error();
 void alignment_check();
 void machine_check();
 void simd_float_point_exception();
+void syscall_handler();
 
 #endif /* JOS_KERN_TRAP_H */

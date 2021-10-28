@@ -1,6 +1,7 @@
 #ifndef JOS_INC_LIB_H
 #define JOS_INC_LIB_H
 
+#include <include/env.h>
 #include <include/types.h>
 
 uint8_t inb(uint16_t port);
@@ -29,5 +30,11 @@ void ltr(uint16_t selector_tss);
 
 uint32_t read_eflags();
 void write_eflags(uint32_t eflags);
+
+// lib/syscall.c
+void sys_puts(const char *string, size_t len);
+int sys_getc(void);
+envid_t sys_getenvid(void);
+int sys_env_destroy(envid_t);
 
 #endif /* JOS_INC_LIB_H */

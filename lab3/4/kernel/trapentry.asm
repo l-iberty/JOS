@@ -17,6 +17,7 @@ global fpu_float_point_error
 global alignment_check
 global machine_check
 global simd_float_point_exception
+global syscall_handler
 
 extern trap ; kernel/trap.c => void trap(struct Trapframe *tf)
 
@@ -35,6 +36,10 @@ extern trap ; kernel/trap.c => void trap(struct Trapframe *tf)
 %endmacro
 
 [SECTION .text]
+
+syscall_handler:
+    push            0
+    trap_handler    0x30
 
 divide_error:
     push            0  ; no errcode,  the same below

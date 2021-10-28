@@ -1,6 +1,8 @@
 LIB_SRCS := lib/readline.c \
 	lib/string.c \
-	lib/vsprintf.c
+	lib/vsprintf.c \
+	lib/syscall.c \
+	lib/_syscall.asm
 
 LIB_OBJS := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCS))
 LIB_OBJS := $(patsubst lib/%.asm, $(OBJDIR)/lib/%.o, $(LIB_OBJS))

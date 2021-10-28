@@ -81,6 +81,8 @@ void trap_init(void) {
   }
   SETGATE(idt[T_BRKPT], 0, GD_KT, excentries[T_BRKPT], 3);
 
+  SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_handler, 3);
+
   // Per-CPU setup
   trap_init_percpu();
 }
@@ -151,6 +153,8 @@ static void trap_dispatch(struct Trapframe *tf) {
   // Handle processor exceptions.
   // LAB 3: Your code here.
 
+  int32_t r;
+
   switch (tf->tf_trapno) {
     case T_DEBUG:
       // 当 TF=1 时, CPU执行完一条指令后产生单步中断, 进入中断处理程序后 TF 自动置0
@@ -164,6 +168,10 @@ static void trap_dispatch(struct Trapframe *tf) {
       return;
     case T_PGFLT:
       page_fault_handler(tf);
+    case T_SYSCALL:
+      r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+                  tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+      tf->tf_regs.reg_eax = 0x1234;
       return;
   }
 

@@ -34,7 +34,7 @@ void i386_init() {
   trap_init();
 
   // Touch all you want.
-  // ENV_CREATE(user_hello, ENV_TYPE_USER);
+  ENV_CREATE(user_hello, ENV_TYPE_USER);
   // ENV_CREATE(user_divzero, ENV_TYPE_USER);
   // ENV_CREATE(user_badsegment, ENV_TYPE_USER);
   // ENV_CREATE(user_softint, ENV_TYPE_USER);
@@ -43,7 +43,7 @@ void i386_init() {
   // ENV_CREATE(user_faultreadkernel, ENV_TYPE_USER);
   // ENV_CREATE(user_faultwrite, ENV_TYPE_USER);
   // ENV_CREATE(user_faultwritekernel, ENV_TYPE_USER);
-  ENV_CREATE(user_breakpoint, ENV_TYPE_USER);
+  // ENV_CREATE(user_breakpoint, ENV_TYPE_USER);
 
   // We only have one user environment for now, so just run it.
   env_run(&envs[0]);

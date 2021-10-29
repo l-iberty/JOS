@@ -2,6 +2,7 @@
 #define JOS_KERN_PMAP_H
 
 #include <include/assert.h>
+#include <include/env.h>
 #include <include/memlayout.h>
 
 extern char bootstacktop[], bootstack[];

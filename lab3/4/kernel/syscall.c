@@ -48,7 +48,7 @@ static int sys_env_destroy(envid_t envid) {
   if (e == curenv) {
     printf("[%x] exiting gracefully\n", curenv->env_id);
   } else {
-    printf("[%x] destroying %08x\n", curenv->env_id, e->env_id);
+    printf("[%x] destroying %x\n", curenv->env_id, e->env_id);
   }
   env_destroy(e);
   return 0;

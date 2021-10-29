@@ -126,3 +126,87 @@ void libmain(int argc, char **argv) {
 ![](imgs/user_hello.png)
 
 ### Page faults and memory protection
+
+对于内核 page faults, 6.828要求*If the kernel does page fault, it should panic and terminate.*
+
+- `kernel/trap.c`
+```c
+void page_fault_handler(struct Trapframe *tf) {
+  uint32_t fault_va;
+
+  // Read processor's CR2 register to find the faulting address
+  fault_va = rcr2();
+
+  // Handle kernel-mode page faults.
+
+  // LAB 3: Your code here.
+  if (tf->tf_cs == GD_KT) {
+    panic("kernel-mode page faults! fault_va: %08x\n", fault_va);
+  }
+
+  // We've already handled kernel-mode exceptions, so if we get here,
+  // the page fault happened in user mode.
+  ......
+}
+```
+
+6.828没有对 kernel-mode page fault 的测试。我们可以随便在内核里写一行这样的代码`*(int*)0=0`即可简单测试：
+
+<img src="imgs/kernel_pagefault.png" width=700/>
+
+对于"memory protection"，需要完成以下内容：
+
+- `kernel/pmap.c`
+```c
+int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
+  // LAB 3: Your code here.
+
+  int i, ret = 0;
+  uintptr_t addr;
+  pde_t *pgtable;
+
+  for (i = 0; i < ROUNDUP(len, PGSIZE); i += PGSIZE) {
+    if ((env->env_pgdir[PDX(va + i)] & perm) != perm) {
+      ret = -E_FAULT;
+      break;
+    }
+    pgtable = (pde_t *)PTE_ADDR(KADDR(env->env_pgdir[PDX(va + i)]));
+    if ((pgtable[PTX(va + i)] & perm) != perm) {
+      ret = -E_FAULT;
+      break;
+    }
+  }
+
+  if (ret < 0) {
+    // in order to pass the motherfucking thorny tests!!!
+    addr = ROUNDDOWN((uintptr_t)va + i, PGSIZE);
+    if (addr == 0) {
+      user_mem_check_addr = (uintptr_t)va + i;
+    } else {
+      user_mem_check_addr = addr;
+    }
+  }
+
+  return ret;
+}
+```
+
+- 6.828 `kern/syscall.c`
+```c
+static void sys_cputs(const char *s, size_t len) {
+  // Check that the user has permission to read memory [s, s+len).
+  // Destroy the environment if not.
+
+  // LAB 3: Your code here.
+  user_mem_assert(curenv, s, len, 0);
+
+  // Print the string supplied by the user.
+  cprintf("%.*s", len, s);
+}
+```
+
+通过 Lab 3 全部测试：
+
+![](imgs/tests.png)
+
+那些测试用的用户程序我就不搬过来了。

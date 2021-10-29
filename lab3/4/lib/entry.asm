@@ -2,7 +2,7 @@
 ; Define the global symbols 'envs', 'pages', 'uvpt', and 'uvpd'
 ; so that they can be used in C as if they were ordinary global arrays.
 global envs
-    envs equ ENVS
+    envs equ UENVS
 global pages
     pages equ UPAGES
 global uvpt
@@ -10,7 +10,7 @@ global uvpt
 global uvpd
     uvpd equ (UVPT+(UVPT>>12)*4)
 
-ENVS        equ 1024
+UENVS       equ 0xEEC00000
 UPAGES      equ 0xEF000000
 UVPT        equ 0xEF400000
 USTACKTOP   equ 0xEEBFE000

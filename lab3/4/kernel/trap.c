@@ -1,6 +1,6 @@
 #include <include/assert.h>
-#include <include/lib.h>
 #include <include/mmu.h>
+#include <include/x86.h>
 #include <kernel/console.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
@@ -168,10 +168,11 @@ static void trap_dispatch(struct Trapframe *tf) {
       return;
     case T_PGFLT:
       page_fault_handler(tf);
+      return;
     case T_SYSCALL:
       r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
                   tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
-      tf->tf_regs.reg_eax = 0x1234;
+      tf->tf_regs.reg_eax = r;
       return;
   }
 

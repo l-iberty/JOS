@@ -1,4 +1,4 @@
-#include <include/env.h>
+#include <include/lib.h>
 
 extern void umain(int argc, char **argv);
 
@@ -8,7 +8,8 @@ const char *binaryname = "<unknown>";
 void libmain(int argc, char **argv) {
   // set thisenv to point at our Env structure in envs[].
   // LAB 3: Your code here.
-  thisenv = 0;
+  envid_t envid = sys_getenvid();
+  thisenv = &envs[ENVX(envid)];
 
   // save the name of the program so that panic() can use it
   if (argc > 0) {
@@ -19,5 +20,5 @@ void libmain(int argc, char **argv) {
   umain(argc, argv);
 
   // exit gracefully
-  // exit();
+  exit();
 }

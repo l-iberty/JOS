@@ -1,6 +1,6 @@
 #include <include/string.h>
 #include <include/memlayout.h>
-#include <include/lib.h>
+#include <include/x86.h>
 #include <include/kbdreg.h>
 
 #include <kernel/console.h>

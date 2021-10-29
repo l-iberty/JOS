@@ -1,6 +1,6 @@
 /* Support for reading the NVRAM from the real-time clock. */
 
-#include <include/lib.h>
+#include <include/x86.h>
 
 #include <kernel/kclock.h>
 

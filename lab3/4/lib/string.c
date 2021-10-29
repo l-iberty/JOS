@@ -15,6 +15,19 @@ char *strcpy(char *dst, const char *src) {
   return r;
 }
 
+char *strncpy(char *dst, const char *src, size_t size) {
+  size_t i;
+  char *ret;
+
+  ret = dst;
+  for (i = 0; i < size; i++) {
+    *dst++ = *src;
+    // If strlen(src) < size, null-pad 'dst' out to 'size' chars
+    if (*src != '\0') src++;
+  }
+  return ret;
+}
+
 int strcmp(const char *p, const char *q) {
   while (*p && *p == *q) p++, q++;
   return (int)((unsigned char)*p - (unsigned char)*q);

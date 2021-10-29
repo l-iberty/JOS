@@ -1,40 +1,31 @@
 #ifndef JOS_INC_LIB_H
 #define JOS_INC_LIB_H
 
+#include <include/assert.h>
 #include <include/env.h>
+#include <include/error.h>
+#include <include/memlayout.h>
+#include <include/stdarg.h>
+#include <include/stdio.h>
+#include <include/string.h>
+#include <include/syscall.h>
 #include <include/types.h>
-
-uint8_t inb(uint16_t port);
-void outb(uint16_t port, uint8_t byte);
-uint16_t inw(uint16_t port);
-void outw(uint16_t port, uint16_t word);
-uint32_t ind(uint16_t port);
-void outd(uint16_t port, uint32_t dword);
-void insb(uint16_t port, void *addr, int cnt);
-void insw(uint16_t port, void *addr, int cnt);
-void insd(uint16_t port, void *addr, int cnt);
-
-uint32_t rcr0();
-uint32_t rcr2();
-uint32_t rcr3();
-void lcr0(uint32_t x);
-void lcr2(uint32_t x);
-void lcr3(uint32_t x);
-
-void invlpg(void *addr);
-
-void lgdt(void *addr);
-void lldt(void *addr);
-void lidt(void *addr);
-void ltr(uint16_t selector_tss);
-
-uint32_t read_eflags();
-void write_eflags(uint32_t eflags);
 
 // lib/syscall.c
 void sys_puts(const char *string, size_t len);
 int sys_getc(void);
 envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
+
+// lib/libmain.c
+extern const char *binaryname;
+extern const volatile struct Env *thisenv;
+
+// lib/exit.c
+void exit();
+
+// lib/entry_asm.asm
+extern const volatile struct Env envs[];
+extern const volatile struct PageInfo pages[];
 
 #endif /* JOS_INC_LIB_H */

@@ -15,11 +15,15 @@ static void sys_puts(const char *s, size_t len) {
   // Destroy the environment if not.
 
   // LAB 3: Your code here.
+  user_mem_assert(curenv, s, len, 0);
 
   // Print the string supplied by the user.
   // printf("%.*s", len, s);
 
-  printf("%s", s);
+  char buf[256];
+  memset(buf, 0, sizeof(buf));
+  strncpy(buf, s, len);
+  printf(buf);
 }
 
 // Read a character from the system console without blocking.
@@ -55,8 +59,6 @@ int32_t syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint3
   // Call the function corresponding to the 'syscallno' parameter.
   // Return any appropriate return value.
   // LAB 3: Your code here.
-
-  printf("syscall %d\n", syscallno);
 
   switch (syscallno) {
     case SYS_puts:

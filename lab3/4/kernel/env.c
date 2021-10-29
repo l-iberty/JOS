@@ -3,14 +3,12 @@
 #include <include/assert.h>
 #include <include/elf.h>
 #include <include/error.h>
-#include <include/lib.h>
+#include <include/x86.h>
 #include <include/mmu.h>
 #include <include/string.h>
 #include <kernel/env.h>
-#include <kernel/env_asm.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
-// #include <kernel/trap.h>
 
 struct Env *envs = NULL;           // All environments
 struct Env *curenv = NULL;         // The current env
@@ -463,7 +461,7 @@ void env_pop_tf(struct Trapframe *tf) {
   //     :
   //     : "g"(tf)
   //     : "memory");
-  __asm_env_pop_tf(tf);
+  _env_pop_tf(tf);
   panic("iret failed"); /* mostly to placate the compiler */
 }
 

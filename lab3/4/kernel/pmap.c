@@ -1,8 +1,8 @@
 #include <include/assert.h>
 #include <include/error.h>
-#include <include/lib.h>
 #include <include/mmu.h>
 #include <include/string.h>
+#include <include/x86.h>
 #include <kernel/env.h>
 #include <kernel/kclock.h>
 #include <kernel/pmap.h>
@@ -401,7 +401,7 @@ pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
     }
     pp->pp_ref++;
     pgtable = (pte_t *)page2pa(pp);
-    pgdir[PDX(va)] = (uintptr_t)pgtable | PTE_P | PTE_W;
+    pgdir[PDX(va)] = (uintptr_t)pgtable | PTE_P | PTE_U | PTE_W;
   }
   pgtable = (pte_t *)KADDR((physaddr_t)pgtable);
   return &pgtable[PTX(va)];

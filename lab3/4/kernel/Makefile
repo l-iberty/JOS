@@ -2,7 +2,7 @@ KERNEL_SRCS := kernel/console.c \
 	kernel/entry.asm \
 	kernel/entrypgdir.c \
 	kernel/env.c \
-	kernel/env_asm.c \
+	kernel/_env.asm \
 	kernel/init.c \
 	kernel/kclock.c \
 	kernel/printf.c \

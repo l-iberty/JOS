@@ -1,10 +1,10 @@
 // Simple command-line kernel monitor useful for
 // controlling the kernel and exploring the system interactively.
 
-#include <include/lib.h>
 #include <include/memlayout.h>
 #include <include/stdio.h>
 #include <include/string.h>
+#include <include/x86.h>
 #include <kernel/console.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>

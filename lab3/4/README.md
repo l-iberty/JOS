@@ -89,3 +89,40 @@ int mon_continue(int argc, char **argv, struct Trapframe *tf) {
 ![](imgs/demo.png)
 
 打开`obj/user/breakpoint.objdump`进行对照。
+
+
+### System Calls
+
+6.828给的说明很详细，此处不再赘述。实现了系统调用后就可以实现用户层的`printf()`了：
+
+![](imgs/syscall.png)
+
+### User-mode startup
+
+有了系统调用的支持，就可以完成`libmain()`：
+
+```c
+void libmain(int argc, char **argv) {
+  // set thisenv to point at our Env structure in envs[].
+  // LAB 3: Your code here.
+  envid_t envid = sys_getenvid();
+  thisenv = &envs[ENVX(envid)];
+
+  // save the name of the program so that panic() can use it
+  if (argc > 0) {
+    binaryname = argv[0];
+  }
+
+  // call user main routine
+  umain(argc, argv);
+
+  // exit gracefully
+  exit();
+}
+```
+
+现在，`user/hello`就可以正常工作了:
+
+![](imgs/user_hello.png)
+
+### Page faults and memory protection

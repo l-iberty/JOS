@@ -255,7 +255,7 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
   env_free_list = e->env_link;
   *newenv_store = e;
 
-  printf("[%x] new env %x\n", curenv ? curenv->env_id : 0, e->env_id);
+  printf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
   return 0;
 }
 
@@ -397,7 +397,7 @@ void env_free(struct Env *e) {
   if (e == curenv) lcr3(PADDR(kern_pgdir));
 
   // Note the environment's demise.
-  printf("[%x] free env %x\n", curenv ? curenv->env_id : 0, e->env_id);
+  printf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
   // Flush all mapped pages in the user portion of the address space
   static_assert(UTOP % PTSIZE == 0);

@@ -269,11 +269,11 @@ void page_init(void) {
   envs_end = ROUNDDOWN((PADDR(&envs[NENV])), PGSIZE);
 
   printf("======== page_init() start ========\n");
-  printf("  kernel: entry: %x  end: %x (phys)\n", kern_entry, kern_end);
-  printf("  kern_pgdir: %x (phys)\n", PADDR(kern_pgdir));
+  printf("  kernel: entry: %08x  end: %08x (phys)\n", kern_entry, kern_end);
+  printf("  kern_pgdir: %08x (phys)\n", PADDR(kern_pgdir));
   printf("  npages: %d  npages_basemem: %d\n", npages, npages_basemem);
-  printf("  pages[] [%x, %x) (phys)\n", PADDR(pages), PADDR(&pages[npages]));
-  printf("  envs[] [%x, %x) (phys)\n", PADDR(envs), PADDR(&envs[NENV]));
+  printf("  pages[] [%08x, %08x) (phys)\n", PADDR(pages), PADDR(&pages[npages]));
+  printf("  envs[] [%08x, %08x) (phys)\n", PADDR(envs), PADDR(&envs[NENV]));
 
   for (i = 0, addr = 0; i < npages; i++, addr += PGSIZE) {
     pages[i].pp_ref = 0;
@@ -300,7 +300,7 @@ void page_init(void) {
     }
   }
 
-  printf("  page_free_list: %x (virt)\n", page_free_list);
+  printf("  page_free_list: %08x (virt)\n", page_free_list);
   printf("======== page_init() end ========\n");
 }
 
@@ -617,7 +617,7 @@ int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
 //
 void user_mem_assert(struct Env *env, const void *va, size_t len, int perm) {
   if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
-    printf("[%x] user_mem_check assertion failure for va %x\n", env->env_id, user_mem_check_addr);
+    printf("[%08x] user_mem_check assertion failure for va %08x\n", env->env_id, user_mem_check_addr);
     env_destroy(env);  // may not return
   }
 }

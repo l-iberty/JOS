@@ -21,7 +21,7 @@ extern pde_t *kern_pgdir;
 
 static inline physaddr_t _paddr(const char *file, int line, void *kva) {
   if ((uint32_t)kva < KERNBASE) {
-    _panic(file, line, "PADDR called with invalid kva %x", kva);
+    _panic(file, line, "PADDR called with invalid kva %08x", kva);
   }
   return (physaddr_t)kva - KERNBASE;
 }
@@ -32,7 +32,7 @@ static inline physaddr_t _paddr(const char *file, int line, void *kva) {
 
 static inline void *_kaddr(const char *file, int line, physaddr_t pa) {
   if (PGNUM(pa) >= npages) {
-    _panic(file, line, "KADDR called with invalid pa %x", pa);
+    _panic(file, line, "KADDR called with invalid pa %08x", pa);
   }
   return (void *)(pa + KERNBASE);
 }

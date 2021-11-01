@@ -45,11 +45,11 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf) {
   extern char _start[], entry[], etext[], edata[], end[];
 
   printf("Special kernel symbols:\n");
-  printf("  _start                    %x (phys)\n", _start);
-  printf("  entry  %x (virt)  %x (phys)\n", entry, entry - KERNBASE);
-  printf("  etext  %x (virt)  %x (phys)\n", etext, etext - KERNBASE);
-  printf("  edata  %x (virt)  %x (phys)\n", edata, edata - KERNBASE);
-  printf("  end    %x (virt)  %x (phys)\n", end, end - KERNBASE);
+  printf("  _start                  %08x (phys)\n", _start);
+  printf("  entry  %08x (virt)  %08x (phys)\n", entry, entry - KERNBASE);
+  printf("  etext  %08x (virt)  %08x (phys)\n", etext, etext - KERNBASE);
+  printf("  edata  %08x (virt)  %08x (phys)\n", edata, edata - KERNBASE);
+  printf("  end    %08x (virt)  %08x (phys)\n", end, end - KERNBASE);
   printf("Kernel executable memory footprint: %dKB\n", ROUNDUP(end - entry, 1024) / 1024);
 
   return 0;
@@ -86,7 +86,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
       }
     }
     if (pa == 0 && perm == 0) {
-      printf("%x (virt) -> ??? (phys) ??? (perm)\n", va);
+      printf("%08x (virt) -> ??? (phys) ??? (perm)\n", va);
     } else {
       p = perm_buf;
       if (perm & PTE_P) {
@@ -125,7 +125,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf) {
         strcpy(p, " Global");
         p += strlen(p);
       }
-      printf("%x (virt) -> %x (phys) %s (perm)\n", va, pa, perm_buf);
+      printf("%08x (virt) -> %08x (phys) %s (perm)\n", va, pa, perm_buf);
     }
   }
   return 0;

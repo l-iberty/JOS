@@ -13,11 +13,11 @@ static void trap_dispatch(struct Trapframe *tf) {
     case T_DEBUG:
       // 当 TF=1 时, CPU执行完一条指令后产生单步中断, 进入中断处理程序后 TF 自动置0
       assert(!(read_eflags() & FL_TF));
-      printf("#DB  eip  0x%x\n", tf->tf_eip);
+      printf("#DB  eip  0x%08x\n", tf->tf_eip);
       monitor(tf);
       return;
     case T_BRKPT:
-      printf("#BP  eip  0x%x\n", tf->tf_eip);
+      printf("#BP  eip  0x%08x\n", tf->tf_eip);
       monitor(tf);
     case T_PGFLT:
       page_fault_handler(tf);

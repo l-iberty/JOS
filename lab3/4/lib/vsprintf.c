@@ -27,12 +27,14 @@ static char *itoa(unsigned int val, int base, char **ps) {
 void vsprintf(char *buf, const char *fmt, va_list ap) {
   char *p, *q, *s;
   char tmp_buf[10];
-  int v;
+  int v, precision, width;
 
   for (p = buf; *fmt; fmt++) {
     if (*fmt == '%') {
       s = tmp_buf;
+      precision = 0;
 
+    reswitch:
       switch (*++fmt) {
         case 'd':
           v = va_arg(ap, int);
@@ -57,9 +59,23 @@ void vsprintf(char *buf, const char *fmt, va_list ap) {
           break;
         case 's':
           q = va_arg(ap, char *);
-          strcpy(p, q);
-          p += strlen(q);
+          if (q == NULL) {
+            q = "(null)";
+          }
+          width = strlen(q);
+          if (precision > 0 && precision <= width) {
+            width = precision;
+          }
+          strncpy(p, q, width);
+          p += width;
           break;
+
+        case '.':
+          width = 0;
+          goto reswitch;
+        case '*':
+          precision = va_arg(ap, int);
+          goto reswitch;
       }
     } else {
       *p++ = *fmt;

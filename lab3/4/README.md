@@ -191,7 +191,7 @@ int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
 }
 ```
 
-- 6.828 `kern/syscall.c`
+- `kernel/syscall.c`
 ```c
 static void sys_cputs(const char *s, size_t len) {
   // Check that the user has permission to read memory [s, s+len).
@@ -201,7 +201,7 @@ static void sys_cputs(const char *s, size_t len) {
   user_mem_assert(curenv, s, len, 0);
 
   // Print the string supplied by the user.
-  cprintf("%.*s", len, s);
+  printf("%.*s", len, s);
 }
 ```
 

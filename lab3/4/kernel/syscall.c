@@ -18,12 +18,7 @@ static void sys_puts(const char *s, size_t len) {
   user_mem_assert(curenv, s, len, 0);
 
   // Print the string supplied by the user.
-  // printf("%.*s", len, s);
-
-  char buf[256];
-  memset(buf, 0, sizeof(buf));
-  strncpy(buf, s, len);
-  printf(buf);
+  printf("%.*s", len, s);
 }
 
 // Read a character from the system console without blocking.

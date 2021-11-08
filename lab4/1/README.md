@@ -350,3 +350,24 @@ The MP specification defines three different interrupt modes as follows:
 
 按照手册p28，由 PIC 切换到 Symmetric I/O 时，首先 write a value of 70h to I/O port 22h, which selects the IMCR. 然后 Writing a value of 01h forces the NMI and 8259 INTR signals to pass through the APIC. 所以`outb(0x23, inb(0x23) | 1)`的作用严格来说不是“屏蔽外部中断”，而是改变 INTR 和 NMI 的路径，如 Figure 3-5 所示。
 
+
+**小小的意外**
+
+当我把`kernel/mpconfig.c`添加到内核的编译链接里面后，定义在`kernel/pmap.c`的`kern_pgdir`与`kernel/mpconfig.c`里的几个全局变量发生了冲突：它们被分配到了相同的地址！这里*似乎*涉及 BSS 段和 COMMON 段的辨析，参考[https://www.cnblogs.com/tureno/articles/6219494.html](https://www.cnblogs.com/tureno/articles/6219494.html)，但`kern_pgdir`和`kernel/mpconfig.c`里面与它冲突的全局变量都是“未初始化的全局变量”，是不是都应该被放到 COMMON 段里面？另外，我用`objdump -h`或`readelf -S`查看`mpconfig.o`（以及其他 *.o 文件）并未看到 COMMON 段，这是为什么？
+
+解决这个问题有两种途径：
+
+1. gcc 编译选项加上 -fno-common
+2. 修改`kernel/kernel.ld`如下：
+
+```
+	.bss : {
+		PROVIDE(edata = .);
+		*(.bss)
+    *(COMMON)
+		PROVIDE(end = .);
+		BYTE(0)
+	}
+```
+
+两种方式都可行，都是把 COMMON 段的符号塞到 BSS 段里去，目前我采用第1种。6.828采用的是第2种，另外我发现6.828的链接脚本`kern/kernel.ld`也是到了 Lab4 才进行了这样的修改，估计他们也是遇到了同样的问题吧。

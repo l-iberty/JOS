@@ -9,7 +9,6 @@
 
 struct CpuInfo cpus[NCPU];
 struct CpuInfo *bootcpu;
-int ismp;
 int ncpu;
 
 // Per-CPU kernel stacks
@@ -159,7 +158,7 @@ void mp_init(void) {
   struct mpconf *conf;
   struct mpproc *proc;
   uint8_t *p;
-  unsigned int i;
+  unsigned int i, ismp;
 
   bootcpu = &cpus[0];
   if ((conf = mpconfig(&mp)) == 0) return;

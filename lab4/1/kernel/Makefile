@@ -8,7 +8,9 @@ KERNEL_SRCS := kernel/console.c \
 	kernel/printf.c \
 	kernel/syscall.c \
 	kernel/lib.asm \
+	kernel/lapic.c \
 	kernel/monitor.c \
+	kernel/mpconfig.c \
 	kernel/pmap.c \
 	kernel/trap.c \
 	kernel/trapentry.asm \

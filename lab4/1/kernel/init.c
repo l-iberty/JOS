@@ -5,6 +5,7 @@
 #include <include/string.h>
 #include <include/types.h>
 #include <kernel/console.h>
+#include <kernel/cpu.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
@@ -32,6 +33,19 @@ void i386_init() {
   // Lab 3 user environment initialization functions
   env_init();
   trap_init();
+
+  // Lab 4 multiprocessor initialization functions
+  // mp_init();
+  // lapic_init();
+
+  // Lab 4 multitasking initialization functions
+  // pic_init();
+
+  // Acquire the big kernel lock before waking up APs
+  // Your code here:
+
+  // Starting non-boot CPUs
+  // boot_aps();
 
   // Touch all you want.
   ENV_CREATE(user_hello, ENV_TYPE_USER);

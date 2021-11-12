@@ -20,6 +20,7 @@ global lidt
 global ltr
 global read_eflags
 global write_eflags
+global xchg
 
 [SECTION .text]
 
@@ -168,4 +169,11 @@ read_eflags:
 write_eflags:
     push   dword [esp+4]
     popf
+    ret
+
+; xchg(volatile uint32_t *addr, uint32_t newval);
+xchg:
+    mov   edx, [esp+4]       ; addr
+    mov   eax, [esp+8]       ; newval
+    xchg  eax, [edx]   ; eax(newval) <-> [addr](oldval)
     ret

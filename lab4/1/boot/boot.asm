@@ -72,6 +72,7 @@ LABEL_PROT_CSEG:
 
 ; GDT
 ;                                   Base    Limit     Attr
+ALIGN 4
 LABEL_GDT:            Descriptor    0,      0,        0
 LABEL_DESC_FLAT_C:    Descriptor    0,      0FFFFFh,  DA_C32 | DA_G_4K
 LABEL_DESC_FLAT_RW:   Descriptor    0,      0FFFFFh,  DA_D32 | DA_G_4K

@@ -4,6 +4,7 @@
 #include <include/mmu.h>
 #include <include/string.h>
 #include <include/x86.h>
+#include <kernel/cpu.h>
 #include <kernel/env.h>
 #include <kernel/kclock.h>
 #include <kernel/pmap.h>
@@ -21,7 +22,9 @@ static struct PageInfo *page_free_list;  // Free list of physical pages
 // Detect machine's physical memory setup.
 // --------------------------------------------------------------
 
-static int nvram_read(int r) { return mc146818_read(r) | (mc146818_read(r + 1) << 8); }
+static int nvram_read(int r) {
+  return mc146818_read(r) | (mc146818_read(r + 1) << 8);
+}
 
 static void i386_detect_memory(void) {
   size_t basemem, extmem, ext16mem, totalmem;
@@ -45,14 +48,17 @@ static void i386_detect_memory(void) {
   npages = totalmem / (PGSIZE / 1024);
   npages_basemem = basemem / (PGSIZE / 1024);
 
-  printf("Physical memory: %dK available, base = %dK, extended = %dK\n", totalmem, basemem, totalmem - basemem);
+  printf("Physical memory: %dK available, base = %dK, extended = %dK\n",
+         totalmem, basemem, totalmem - basemem);
 }
 
 // --------------------------------------------------------------
 // Set up memory mappings above UTOP.
 // --------------------------------------------------------------
 
-static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
+static void mem_init_mp(void);
+static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size,
+                            physaddr_t pa, int perm);
 static void check_page_free_list(bool only_low_memory);
 static void check_page_alloc(void);
 static void check_kern_pgdir(void);
@@ -157,7 +163,9 @@ void mem_init() {
   //      (ie. perm = PTE_U | PTE_P)
   //    - pages itself -- kernel RW, user NONE
   // Your code goes here:
-  boot_map_region(kern_pgdir, UPAGES, ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE), PADDR(pages), PTE_U);
+  boot_map_region(kern_pgdir, UPAGES,
+                  ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE),
+                  PADDR(pages), PTE_U);
 
   //////////////////////////////////////////////////////////////////////
   // Map the 'envs' array read-only by the user at linear address UENVS
@@ -166,7 +174,8 @@ void mem_init() {
   //    - the new image at UENVS  -- kernel R, user R
   //    - envs itself -- kernel RW, user NONE
   // LAB 3: Your code here.
-  boot_map_region(kern_pgdir, UENVS, ROUNDUP(NENV * sizeof(struct Env), PGSIZE), PADDR(envs), PTE_U);
+  boot_map_region(kern_pgdir, UENVS, ROUNDUP(NENV * sizeof(struct Env), PGSIZE),
+                  PADDR(envs), PTE_U);
 
   //////////////////////////////////////////////////////////////////////
   // Use the physical memory that 'bootstack' refers to as the kernel
@@ -180,7 +189,8 @@ void mem_init() {
   //     Permissions: kernel RW, user NONE
   // Your code goes here:
   extern char bootstack[];
-  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack),
+                  PTE_W);
 
   //////////////////////////////////////////////////////////////////////
   // Map all of physical memory at KERNBASZE
@@ -190,7 +200,11 @@ void mem_init() {
   // we just set up the mapping anyway.
   // Permissions: kernel RW, user NONE
   // Your code goes here:
-  boot_map_region(kern_pgdir, KERNBASE, ((uint64_t)1 << 32) - KERNBASE, 0, PTE_W);
+  boot_map_region(kern_pgdir, KERNBASE, ((uint64_t)1 << 32) - KERNBASE, 0,
+                  PTE_W);
+
+  // Initialize the SMP-related parts of the memory map
+  mem_init_mp();
 
   // Check that the initial page directory has been set up correctly.
   check_kern_pgdir();
@@ -217,6 +231,34 @@ void mem_init() {
   check_page_installed_pgdir();
 }
 
+// Modify mappings in kern_pgdir to support SMP
+//   - Map the per-CPU stacks in the region [KSTACKTOP-PTSIZE, KSTACKTOP)
+//
+static void mem_init_mp(void) {
+  // Map per-CPU stacks starting at KSTACKTOP, for up to 'NCPU' CPUs.
+  //
+  // For CPU i, use the physical memory that 'percpu_kstacks[i]' refers
+  // to as its kernel stack. CPU i's kernel stack grows down from virtual
+  // address kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP), and is
+  // divided into two pieces, just like the single stack you set up in
+  // mem_init:
+  //     * [kstacktop_i - KSTKSIZE, kstacktop_i)
+  //          -- backed by physical memory
+  //     * [kstacktop_i - (KSTKSIZE + KSTKGAP), kstacktop_i - KSTKSIZE)
+  //          -- not backed; so if the kernel overflows its stack,
+  //             it will fault rather than overwrite another CPU's stack.
+  //             Known as a "guard page".
+  //     Permissions: kernel RW, user NONE
+  //
+  // LAB 4: Your code here:
+
+  int i;
+  for (i = 0; i < NCPU; i++) {
+    boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE,
+                    KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+  }
+}
+
 // --------------------------------------------------------------
 // Tracking of physical pages.
 // The 'pages' array has one 'struct PageInfo' entry per physical page.
@@ -230,6 +272,10 @@ void mem_init() {
 // memory via the page_free_list.
 //
 void page_init(void) {
+  // LAB 4:
+  // Change your code to mark the physical page at MPENTRY_PADDR
+  // as in use
+
   // The example code here marks all physical pages as free.
   // However this is not truly the case.  What memory is free?
   //  1) Mark physical page 0 as in use.
@@ -269,12 +315,13 @@ void page_init(void) {
   envs_start = ROUNDDOWN((PADDR(envs)), PGSIZE);
   envs_end = ROUNDDOWN((PADDR(&envs[NENV])), PGSIZE);
 
-  printf("======== page_init() start ========\n");
-  printf("  kernel: entry: %08x  end: %08x (phys)\n", kern_entry, kern_end);
-  printf("  kern_pgdir: %08x (phys)\n", PADDR(kern_pgdir));
-  printf("  npages: %d  npages_basemem: %d\n", npages, npages_basemem);
-  printf("  pages[] [%08x, %08x) (phys)\n", PADDR(pages), PADDR(&pages[npages]));
-  printf("  envs[] [%08x, %08x) (phys)\n", PADDR(envs), PADDR(&envs[NENV]));
+  // printf("======== page_init() start ========\n");
+  // printf("  kernel: entry: %08x  end: %08x (phys)\n", kern_entry, kern_end);
+  // printf("  kern_pgdir: %08x (phys)\n", PADDR(kern_pgdir));
+  // printf("  npages: %d  npages_basemem: %d\n", npages, npages_basemem);
+  // printf("  pages[] [%08x, %08x) (phys)\n", PADDR(pages),
+  // PADDR(&pages[npages])); printf("  envs[] [%08x, %08x) (phys)\n",
+  // PADDR(envs), PADDR(&envs[NENV]));
 
   for (i = 0, addr = 0; i < npages; i++, addr += PGSIZE) {
     pages[i].pp_ref = 0;
@@ -301,8 +348,8 @@ void page_init(void) {
     }
   }
 
-  printf("  page_free_list: %08x (virt)\n", page_free_list);
-  printf("======== page_init() end ========\n");
+  // printf("  page_free_list: %08x (virt)\n", page_free_list);
+  // printf("======== page_init() end ========\n");
 }
 
 //
@@ -419,7 +466,8 @@ pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
-static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm) {
+static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size,
+                            physaddr_t pa, int perm) {
   // Fill this function in
   assert(va % PGSIZE == 0);
   assert(pa % PGSIZE == 0);
@@ -554,7 +602,9 @@ void page_remove(pde_t *pgdir, void *va) {
 void tlb_invalidate(pde_t *pgdir, void *va) {
   // Flush the entry only if we're modifying the current address space.
   // For now, there is only one address space, so always invalidate.
-  invlpg(va);
+  if (!curenv || curenv->env_pgdir == pgdir) {
+    invlpg(va);
+  }
 }
 
 //
@@ -658,7 +708,8 @@ int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
 //
 void user_mem_assert(struct Env *env, const void *va, size_t len, int perm) {
   if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
-    printf("[%08x] user_mem_check assertion failure for va %08x\n", env->env_id, user_mem_check_addr);
+    printf("[%08x] user_mem_check assertion failure for va %08x\n", env->env_id,
+           user_mem_check_addr);
     env_destroy(env);  // may not return
   }
 }
@@ -690,7 +741,8 @@ static void check_page_free_list(bool only_low_memory) {
       // 所描述的物理页地址 */ PDX(la): (la >> PDXSHIFT) & 0x3FF /* 得到线性地址
       // la 的页目录索引, 也就是 la 的高 10 bits */ PDX(page2pa(pp)): 得到 pp
       // 对应的物理页地址的“页目录索引”, 即高 10 bits */
-      int pagetype = PDX(page2pa(pp)) >= pdx_limit; /* only_low_memory == true 时 pdx_limit = 1 */
+      int pagetype = PDX(page2pa(pp)) >=
+                     pdx_limit; /* only_low_memory == true 时 pdx_limit = 1 */
       // pagetype 是一个布尔值, 只能等于0或1.
       // 页目录一共有 1024 项, 每一项指向一个页表, 每个页表能映射 4MB 虚拟内存,
       // 1024 个页表共能映射 4GB 虚拟内存. 1024 个页表对应的页目录索引为 { 0, 1,
@@ -906,15 +958,16 @@ static void check_kern_pgdir(void) {
 
   // check kernel stack
   // (updated in lab 4 to check per-CPU kernel stacks)
-  // for (n = 0; n < NCPU; n++) {
-  //   uint32_t base = KSTACKTOP - (KSTKSIZE + KSTKGAP) * (n + 1);
-  //   for (i = 0; i < KSTKSIZE; i += PGSIZE) {
-  //     assert(check_va2pa(pgdir, base + KSTKGAP + i) == PADDR(percpu_kstacks[n]) + i);
-  //   }
-  //   for (i = 0; i < KSTKGAP; i += PGSIZE) {
-  //     assert(check_va2pa(pgdir, base + i) == ~0);
-  //   }
-  // }
+  for (n = 0; n < NCPU; n++) {
+    uint32_t base = KSTACKTOP - (KSTKSIZE + KSTKGAP) * (n + 1);
+    for (i = 0; i < KSTKSIZE; i += PGSIZE) {
+      assert(check_va2pa(pgdir, base + KSTKGAP + i) ==
+             PADDR(percpu_kstacks[n]) + i);
+    }
+    for (i = 0; i < KSTKGAP; i += PGSIZE) {
+      assert(check_va2pa(pgdir, base + i) == ~0);
+    }
+  }
 
   // check PDE permissions
   for (i = 0; i < NPDENTRIES; i++) {

@@ -16,8 +16,11 @@ CFLAGS  += -Wall -Wno-format -Wno-unused -Werror -g3 -m32 -c
 ASFLAGS := -f elf
 LDFLAGS := -m elf_i386
 
+CPUS ?= 1
+
 GDBPORT := 1234
 QEMUOPTS := -drive file=$(OBJDIR)/jos.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS += -smp $(CPUS)
 
 all:
 

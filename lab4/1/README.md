@@ -157,14 +157,14 @@ Lab 4 就此启航！
 #### 缩写
 - IMCR = Interrupt Mode Configuration Register
 - BSP = Bootstrap Processor
-- PIC = Programmable Interrupt Controller (中断控制器)
-- APIC = Advanced PIC (高级可编程中断控制器)
+- PIC = Programmable Interrupt Controller (可编程中断控制器)
+- APIC = Advanced PIC
 - LAPIC = Local APIC
 - INTR = Interrupt Request (中断请求)
 - NMI = Non-Maskable Interrput (不可屏蔽中断)
 
 #### `kernel/mpconfig.c`
-这部分代码由6.828提供，我对照[MP手册](https://pdos.csail.mit.edu/6.828/2018/readings/ia32/MPspec.pdf)手册进行分析。
+这部分代码由6.828提供，我对照[MP手册](https://pdos.csail.mit.edu/6.828/2018/readings/ia32/MPspec.pdf)进行分析。
 
 **1. MP Floating Pointer Structure**
 
@@ -330,13 +330,15 @@ void mp_init(void) {
 
 回顾`mp::imcrp`的定义：When the IMCR presence bit is set, the IMCR is present and PIC Mode is implemented; otherwise, Virtual Wire Mode is implemented.
 
+<u>实测 JOS 在 qemu 上运行时使用的是 Virtual Wire Mode。</u>
+
 手册3.6.2, p26-27, 三种中断模式：
 
 The MP specification defines three different interrupt modes as follows:
 
-- *PIC Mode* effectively bypasses all APIC components and forces the system to operate in single-processor mode.
-- *Virtual Wire Mode* uses an APIC as a virtual wire, but otherwise operates the same as PIC Mode.
-- *Symmetric I/O Mode* enables the system to operate with more than one processor.
+- *PIC Mode* — effectively bypasses all APIC components and forces the system to operate in single-processor mode.
+- *Virtual Wire Mode* — uses an APIC as a virtual wire, but otherwise operates the same as PIC Mode.
+- *Symmetric I/O Mode* — enables the system to operate with more than one processor.
 
 所以在多处理模式下，需要由 PIC 模式切换到 Symmetric I/O 模式——如果硬件实现了 PIC 模式的话。
 
@@ -346,7 +348,7 @@ The MP specification defines three different interrupt modes as follows:
 
 ![](imgs/symmetric_mode.png)
 
-可以看到，在单处理器模式下，INTR 经 8259A 直接打到 BSP，NMI 则直接打到 BSP（所以叫不可屏蔽中断）。在多处理器模式下，INTR 不再经过 8259A，而是经过 I/O APIC 打到与每一个 CPU 相连的 Local APIC 上，然后再分别打到每个 CPU 上；NMI 则打到 Local APIC 上。
+可以看到，在 PIC 模式下，INTR 经 8259A 直接打到 BSP，NMI 则直接打到 BSP（所以叫不可屏蔽中断）。在 Symmetric I/O 模式下，INTR 不再经过 8259A，而是经过 I/O APIC 打到与每一个 CPU 相连的 Local APIC 上，然后再分别打到每个 CPU 上；NMI 则打到 Local APIC 上。
 
 按照手册p28，由 PIC 切换到 Symmetric I/O 时，首先 write a value of 70h to I/O port 22h, which selects the IMCR. 然后 Writing a value of 01h forces the NMI and 8259 INTR signals to pass through the APIC. 所以`outb(0x23, inb(0x23) | 1)`的作用严格来说不是“屏蔽外部中断”，而是改变 INTR 和 NMI 的路径，如 Figure 3-5 所示。
 
@@ -361,13 +363,98 @@ The MP specification defines three different interrupt modes as follows:
 2. 修改`kernel/kernel.ld`如下：
 
 ```
-	.bss : {
-		PROVIDE(edata = .);
-		*(.bss)
+  .bss : {
+    PROVIDE(edata = .);
+    *(.bss)
     *(COMMON)
-		PROVIDE(end = .);
-		BYTE(0)
-	}
+    PROVIDE(end = .);
+    BYTE(0)
+  }
 ```
 
 两种方式都可行，都是把 COMMON 段的符号塞到 BSS 段里去，目前我采用第1种。6.828采用的是第2种，另外我发现6.828的链接脚本`kern/kernel.ld`也是到了 Lab4 才进行了这样的修改，估计他们也是遇到了同样的问题吧。
+
+**6. kernel/lapic.c**
+暂略
+
+#### Per-CPU State and Initialization
+
+- **Per-CPU kernel stack**
+
+6.828要求实现`mem_init_mp()`：
+
+```c
+// Modify mappings in kern_pgdir to support SMP
+//   - Map the per-CPU stacks in the region [KSTACKTOP-PTSIZE, KSTACKTOP)
+//
+static void mem_init_mp(void) {
+  int i;
+  for (i = 0; i < NCPU; i++) {
+    boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE,
+                    KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+  }
+}
+```
+
+并在`mem_init()`里调用它：
+
+```c
+void mem_init() {
+  ......
+  // Initialize the SMP-related parts of the memory map
+  mem_init_mp();
+  ......
+}
+```
+
+现在就可以通过`check_kern_pgdir()`测试了。
+
+- **Per-CPU TSS and TSS descriptor**
+
+修改`trap_init_percpu()`：
+
+```c
+// Initialize and load the per-CPU TSS and IDT
+void trap_init_percpu(void) {
+  int i;
+  for (i = 0; i < NCPU; i++) {
+    // Setup a TSS so that we get the right stack
+    // when we trap to the kernel.
+    cpus[i].cpu_ts.ts_esp0 = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+    cpus[i].cpu_ts.ts_ss0 = GD_KD;
+    cpus[i].cpu_ts.ts_iomb = sizeof(struct Taskstate);
+
+    // Initialize the TSS slot of the gdt.
+    gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t)(&cpus[i].cpu_ts),
+                                    sizeof(struct Taskstate) - 1, 0);
+    gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
+  }
+
+  // Load the TSS selector
+  ltr(GD_TSS0 + (cpunum() << 3));
+
+  // Load the IDT
+  lidt(&idt_pd);
+}
+```
+
+- **Per-CPU current environment pointer**
+
+原本定义在`kernel/env.c`的全局变量`curenv`要在`kernel/env.h`里将其修改为：
+```c
+#define curenv (thiscpu->cpu_env)  // Current environment
+```
+
+随机而来的是对`tlb_invalidate()`的修改：
+
+```c
+void tlb_invalidate(pde_t *pgdir, void *va) {
+  // Flush the entry only if we're modifying the current address space.
+  // For now, there is only one address space, so always invalidate.
+  if (!curenv || curenv->env_pgdir == pgdir) {
+    invlpg(va);
+  }
+}
+```
+
+- **Per-CPU system registers**

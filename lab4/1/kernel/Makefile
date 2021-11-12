@@ -11,6 +11,8 @@ KERNEL_SRCS := kernel/console.c \
 	kernel/lapic.c \
 	kernel/monitor.c \
 	kernel/mpconfig.c \
+	kernel/mpentry.asm \
+	kernel/picirq.c \
 	kernel/pmap.c \
 	kernel/trap.c \
 	kernel/trapentry.asm \

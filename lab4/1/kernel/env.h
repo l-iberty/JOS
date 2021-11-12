@@ -2,9 +2,10 @@
 #define JOS_KERN_ENV_H
 
 #include <include/env.h>
+#include <kernel/cpu.h>
 
-extern struct Env *envs;    // All environments
-extern struct Env *curenv;  // Current environment
+extern struct Env *envs;           // All environments
+#define curenv (thiscpu->cpu_env)  // Current environment
 extern struct Segdesc gdt[];
 
 void env_init(void);

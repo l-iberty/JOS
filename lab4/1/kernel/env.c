@@ -3,15 +3,15 @@
 #include <include/assert.h>
 #include <include/elf.h>
 #include <include/error.h>
-#include <include/x86.h>
 #include <include/mmu.h>
 #include <include/string.h>
+#include <include/x86.h>
+#include <kernel/cpu.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
 
 struct Env *envs = NULL;           // All environments
-struct Env *curenv = NULL;         // The current env
 static struct Env *env_free_list;  // Free environment list
                                    // (linked by Env->env_link)
 
@@ -32,7 +32,7 @@ static struct Env *env_free_list;  // Free environment list
 // definition of gdt specifies the Descriptor Privilege Level (DPL)
 // of that descriptor: 0 for kernel and 3 for user.
 //
-struct Segdesc gdt[] = {
+struct Segdesc gdt[NCPU + 5] = {
     // 0x0 - unused (always faults -- for trapping NULL far pointers)
     SEG_NULL,
 
@@ -48,7 +48,8 @@ struct Segdesc gdt[] = {
     // 0x20 - user data segment
     [GD_UD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 3),
 
-    // 0x28 - tss, initialized in trap_init_percpu()
+    // Per-CPU TSS descriptors (starting from GD_TSS0) are initialized
+    // in trap_init_percpu()
     [GD_TSS0 >> 3] = SEG_NULL};
 
 struct Pseudodesc gdt_pd = {sizeof(gdt) - 1, (unsigned long)gdt};

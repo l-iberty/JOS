@@ -46,5 +46,6 @@ void ltr(uint16_t selector_tss);
 
 uint32_t read_eflags();
 void write_eflags(uint32_t eflags);
+uint32_t xchg(volatile uint32_t *addr, uint32_t newval);
 
 #endif /* JOS_INC_X86_H */

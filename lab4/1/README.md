@@ -374,9 +374,6 @@ The MP specification defines three different interrupt modes as follows:
 
 两种方式都可行，都是把 COMMON 段的符号塞到 BSS 段里去，目前我采用第1种。6.828采用的是第2种，另外我发现6.828的链接脚本`kern/kernel.ld`也是到了 Lab4 才进行了这样的修改，估计他们也是遇到了同样的问题吧。
 
-**6. kernel/lapic.c**
-暂略
-
 #### Per-CPU State and Initialization
 
 - **Per-CPU kernel stack**
@@ -458,3 +455,42 @@ void tlb_invalidate(pde_t *pgdir, void *va) {
 ```
 
 - **Per-CPU system registers**
+
+
+#### 完成剩余的工作，booting APs
+
+在`i386_init()`里依次调用`lapic_init()`,`pic_init()`和`boot_aps()`，这几个函数的实现原理暂略，直接从6.828抄过来。
+
+`boot_aps()`依次启动每个AP。每个 AP 启动后都会从`0x7000 (MPENTRY_PADDR)`开始执行代码——6.828 Lab4 的**Application Processor Bootstrap**一节对此有详细说明。`kernel/mpentry.asm`是我按照 NASM 语法重写的。需要注意，每个 AP 的入口代码的加载地址都是`MPENTRY_PADDR`，但编译链接后`kernel/mpentry.asm`里面与地址有关的符号都是在 kernel 的链接地址`0xF0100000`之上的。
+
+AP 在执行`kernel/mpentry.asm`代码里的代码时，`eip`始终处于`0x7000 (MPENTRY_PADDR)`之上的低地址，直到`# mov eax, mp_main  # call eax`后，`eip`才打到`KERNBASE`之上。
+
+如何把 LOW EIP 打到`KERNBASE`之上，`kernel/entry.asm`和`mpentry.asm`的做法分别为：
+
+`kernel/entry.asm`:
+
+```
+    mov   eax, .relocated
+    jmp   eax
+.relocated:
+```
+
+`kernel/mpentry.asm`:
+
+```
+  mov    eax, mp_main
+  call   eax
+```
+
+二者有一个共同之处：不能直接`jmp/call <label>`，也就是说不能直接`jmp .relocated`/`call mp_main`。如果一定要直接`call`的话务必加上段选择子：
+
+```
+  call SELECTOR_FLATC:mp_main
+```
+
+这其实就是短跳转和长跳转的区别，不加段选择子是短跳转，加了段选择子就是长跳转，和进入保护模式的那个长跳转是一样的。问题是为什么用寄存器传地址时`jmp/call eax`就是长跳转呢？这应该是指令译码的固有操作。
+
+最后，我们成功启动了APs：
+
+<img src="imgs/smp.png" width=700/>
+

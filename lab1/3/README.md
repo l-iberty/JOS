@@ -123,7 +123,7 @@ Idx Name          Size      VMA       LMA       File off  Algn
 
 这里又引出一个问题：**section 和 segment 的关系？**
 
-`objdump`显示 kernel 里共有7个 section，每个 section 都有自己的加载地址。那么 bootloader 在加载 kernel 的时候是以此把每个 section  加载进内存吗？为了解决此问题，我在`kernel/init.c`的`i386_init()`里把 segment 的信息打印出来：
+`objdump`显示 kernel 里共有7个 section，每个 section 都有自己的加载地址。那么 bootloader 在加载 kernel 的时候是依次把每个 section  加载进内存吗？为了解决此问题，我在`kernel/init.c`的`i386_init()`里把 segment 的信息打印出来：
 
 ![](imgs/segments.png)
 

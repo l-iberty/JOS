@@ -7,9 +7,8 @@
 
 extern bootmain
 
-global start
-
 [BITS 16]                         ; Assemble for 16-bit mode
+global start
 start:
   cli                             ; Disable interrupts
   cld                             ; String operations increment
@@ -44,7 +43,7 @@ seta20.2:
   ; and segment translation that makes virtual addresses
   ; identical to their physical addresses, so that the
   ; effective memory map does not change during the switch.
-  lgdt   [GDT_PTR]
+  lgdt   [GDT_DESC]
   mov    eax, cr0
   or     eax, 1                    ; protected mode enable flag
   mov    cr0, eax
@@ -58,9 +57,9 @@ LABEL_PROT_CSEG:
   mov    ax, SELECTOR_FLATRW
   mov    ds, ax
   mov    es, ax
+  mov    ss, ax
   mov    gs, ax
   mov    fs, ax
-  mov    ss, ax
 
   ; Set up the stack pointer and call into C.
   mov    esp, start
@@ -78,8 +77,8 @@ LABEL_DESC_FLAT_C:    Descriptor    0,      0FFFFFh,  DA_C32 | DA_G_4K
 LABEL_DESC_FLAT_RW:   Descriptor    0,      0FFFFFh,  DA_D32 | DA_G_4K
 
 GDT_SIZE equ $ - LABEL_GDT
-GDT_PTR: dw  GDT_SIZE - 1  ; limit
-         dd  LABEL_GDT     ; base
+GDT_DESC: dw  GDT_SIZE - 1  ; limit
+          dd  LABEL_GDT     ; base
 
 ; selectors
 SELECTOR_FLATC  equ  LABEL_DESC_FLAT_C  - LABEL_GDT

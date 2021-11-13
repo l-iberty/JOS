@@ -31,7 +31,7 @@ DA_G_4K		equ	1_0_0_0_0000_0_00_0_0000b  ; 4K 粒度
 %define RELOC(x) ((x) - KERNBASE)
 %define MPBOOTPHYS(s) ((s) - mpentry_start + MPENTRY_PADDR)
 
-[SECTION .text]
+[BITS 16]
 global mpentry_start
 mpentry_start:
   cli
@@ -41,7 +41,7 @@ mpentry_start:
   mov    es, ax
   mov    ss, ax
 
-  lgdt   [GDT_PTR]
+  lgdt   [MPBOOTPHYS(GDT_DESC)]
   mov    eax, cr0
   or     eax, CR0_PE
   mov    cr0, eax
@@ -53,9 +53,9 @@ LABEL_PROT_CSEG:
   mov    ax, SELECTOR_FLATRW
   mov    ds, ax
   mov    es, ax
+  mov    ss, ax
   mov    gs, ax
   mov    fs, ax
-  mov    ss, ax
 
   ; Set up initial page table. We cannot use kern_pgdir yet because
 	; we are still running at a low EIP.
@@ -71,7 +71,8 @@ LABEL_PROT_CSEG:
   mov    ebp, 0
 
   ; Call mp_main().  (why the indirect call?)
-  call   mp_main
+  mov    eax, mp_main
+  call   eax
 
   ; If mp_main returns (it shouldn't), loop.
   jmp    $
@@ -85,8 +86,8 @@ LABEL_DESC_FLAT_C:    Descriptor    0,      0FFFFFh,  DA_C32 | DA_G_4K
 LABEL_DESC_FLAT_RW:   Descriptor    0,      0FFFFFh,  DA_D32 | DA_G_4K
 
 GDT_SIZE equ $ - LABEL_GDT
-GDT_PTR: dw  GDT_SIZE - 1  ; limit
-         dd  LABEL_GDT     ; base
+GDT_DESC: dw  GDT_SIZE - 1  ; limit
+          dd  LABEL_GDT     ; base
 
 ; selectors
 SELECTOR_FLATC  equ  LABEL_DESC_FLAT_C  - LABEL_GDT

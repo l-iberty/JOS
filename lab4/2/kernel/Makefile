@@ -6,6 +6,7 @@ KERNEL_SRCS := kernel/console.c \
 	kernel/init.c \
 	kernel/kclock.c \
 	kernel/printf.c \
+	kernel/spinlock.c \
 	kernel/syscall.c \
 	kernel/lib.asm \
 	kernel/lapic.c \

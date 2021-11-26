@@ -11,6 +11,7 @@
 #include <kernel/monitor.h>
 #include <kernel/picirq.h>
 #include <kernel/pmap.h>
+#include <kernel/sched.h>
 #include <kernel/spinlock.h>
 #include <kernel/trap.h>
 
@@ -53,11 +54,8 @@ void i386_init() {
   // Starting non-boot CPUs
   boot_aps();
 
-  for (;;)
-    ;
-
   // Touch all you want.
-  ENV_CREATE(user_hello, ENV_TYPE_USER);
+  // ENV_CREATE(user_hello, ENV_TYPE_USER);
   // ENV_CREATE(user_divzero, ENV_TYPE_USER);
   // ENV_CREATE(user_badsegment, ENV_TYPE_USER);
   // ENV_CREATE(user_softint, ENV_TYPE_USER);
@@ -68,8 +66,8 @@ void i386_init() {
   // ENV_CREATE(user_faultwritekernel, ENV_TYPE_USER);
   // ENV_CREATE(user_breakpoint, ENV_TYPE_USER);
 
-  // We only have one user environment for now, so just run it.
-  env_run(&envs[0]);
+  // Schedule and run the first user environment!
+  sched_yield();
 }
 
 // While boot_aps is booting a given CPU, it communicates the per-core
@@ -120,9 +118,7 @@ void mp_main(void) {
   // Your code here:
   lock_kernel();
 
-  // Remove this after you finish Exercise 6
-  for (;;)
-    ;
+  sched_yield();
 }
 
 /*

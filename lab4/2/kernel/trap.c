@@ -5,6 +5,7 @@
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
+#include <kernel/spinlock.h>
 #include <kernel/syscall.h>
 #include <kernel/trap.h>
 
@@ -123,8 +124,7 @@ void trap_init_percpu(void) {
     cpus[i].cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
     // Initialize the TSS slot of the gdt.
-    gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t)(&cpus[i].cpu_ts),
-                                    sizeof(struct Taskstate) - 1, 0);
+    gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t)(&cpus[i].cpu_ts), sizeof(struct Taskstate) - 1, 0);
     gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
   }
 
@@ -167,8 +167,7 @@ void print_trapframe(struct Trapframe *tf) {
   // W/R=a write/read caused the fault
   // PR=a protection violation caused the fault (NP=page not present).
   if (tf->tf_trapno == T_PGFLT) {
-    printf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel",
-           tf->tf_err & 2 ? "write" : "read",
+    printf(" [%s, %s, %s]\n", tf->tf_err & 4 ? "user" : "kernel", tf->tf_err & 2 ? "write" : "read",
            tf->tf_err & 1 ? "protection" : "not-present");
   } else {
     printf("\n");
@@ -215,9 +214,8 @@ static void trap_dispatch(struct Trapframe *tf) {
       page_fault_handler(tf);
       return;
     case T_SYSCALL:
-      r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
-                  tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi,
-                  tf->tf_regs.reg_esi);
+      r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+                  tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
       tf->tf_regs.reg_eax = r;
       return;
   }
@@ -246,6 +244,11 @@ void trap(struct Trapframe *tf) {
 
   if ((tf->tf_cs & 3) == 3) {
     // Trapped from user mode.
+    // Acquire the big kernel lock before doing any
+    // serious kernel work.
+    // LAB 4: Your code here.
+    lock_kernel();
+
     assert(curenv);
 
     // Copy trap frame (which is currently on the stack)
@@ -285,8 +288,7 @@ void page_fault_handler(struct Trapframe *tf) {
   // the page fault happened in user mode.
 
   // Destroy the environment that caused the fault.
-  printf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va,
-         tf->tf_eip);
+  printf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va, tf->tf_eip);
   print_trapframe(tf);
   env_destroy(curenv);
 }

@@ -5,6 +5,7 @@
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
+#include <kernel/sched.h>
 #include <kernel/spinlock.h>
 #include <kernel/syscall.h>
 #include <kernel/trap.h>
@@ -235,12 +236,23 @@ void trap(struct Trapframe *tf) {
   // of GCC rely on DF being clear
   asm volatile("cld" ::: "cc");
 
+  // Halt the CPU if some other CPU has called panic()
+  extern char *panicstr;
+  if (panicstr) {
+    asm volatile("hlt");
+  }
+
+  // Re-aquire the big kernel lock if we were halted in sched_yield()
+  if (xchg(&thiscpu->cpu_status, CPU_STARTED) == CPU_HALTED) {
+    lock_kernel();
+  }
+
   // Check that interrupts are disabled.  If this assertion
   // fails, DO NOT be tempted to fix it by inserting a "cli" in
   // the interrupt path.
   assert(!(read_eflags() & FL_IF));
 
-  printf("Incoming TRAP frame at %p\n", tf);
+  // printf("Incoming TRAP frame at %p\n", tf);
 
   if ((tf->tf_cs & 3) == 3) {
     // Trapped from user mode.
@@ -250,6 +262,13 @@ void trap(struct Trapframe *tf) {
     lock_kernel();
 
     assert(curenv);
+
+    // Garbage collect if current environment is a zombie
+    if (curenv->env_status == ENV_DYING) {
+      env_free(curenv);
+      curenv = NULL;
+      sched_yield();
+    }
 
     // Copy trap frame (which is currently on the stack)
     // into 'curenv->env_tf', so that running the environment
@@ -266,9 +285,14 @@ void trap(struct Trapframe *tf) {
   // Dispatch based on what type of trap occurred
   trap_dispatch(tf);
 
-  // Return to the current environment, which should be running.
-  assert(curenv && curenv->env_status == ENV_RUNNING);
-  env_run(curenv);
+  // If we made it to this point, then no other environment was
+  // scheduled, so we should return to the current environment
+  // if doing so makes sense.
+  if (curenv && curenv->env_status == ENV_RUNNING) {
+    env_run(curenv);
+  } else {
+    sched_yield();
+  }
 }
 
 void page_fault_handler(struct Trapframe *tf) {
@@ -281,7 +305,7 @@ void page_fault_handler(struct Trapframe *tf) {
 
   // LAB 3: Your code here.
   if (tf->tf_cs == GD_KT) {
-    panic("kernel-mode page faults! fault_va: %08x", fault_va);
+    panic("kernel-mode page faults! cpu: %d fault_va: %08x eip: %08x", cpunum(), fault_va, tf->tf_eip);
   }
 
   // We've already handled kernel-mode exceptions, so if we get here,

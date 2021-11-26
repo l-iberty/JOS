@@ -6,7 +6,7 @@
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
 
-void sched_halt();
+void sched_halt() __attribute__((noreturn));
 
 // Choose a user environment to run and run it.
 void sched_yield() {
@@ -33,7 +33,7 @@ void sched_yield() {
       panic("env_run should not return");
     }
   }
-  if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
+  if (curenv && curenv->env_status == ENV_RUNNING) {
     env_run(curenv);
     panic("env_run should not return");
   }

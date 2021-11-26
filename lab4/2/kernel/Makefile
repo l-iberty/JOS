@@ -31,7 +31,8 @@ KERNEL_BINS := user/hello \
 	user/faultreadkernel \
 	user/faultwrite \
 	user/faultwritekernel \
-	user/breakpoint
+	user/breakpoint \
+	user/yield
 
 KERNEL_OBJS := $(patsubst kernel/%.c, $(OBJDIR)/kernel/%.o, $(KERNEL_SRCS))
 KERNEL_OBJS := $(patsubst kernel/%.asm, $(OBJDIR)/kernel/%.o, $(KERNEL_OBJS))
@@ -52,7 +53,7 @@ $(OBJDIR)/kernel/%.o: kernel/%.asm
 all: $(OBJDIR)/jos.img
 
 # link kernel
-$(OBJDIR)/kernel/kernel: $(KERNEL_OBJS) $(KERNEL_BINS)
+$(OBJDIR)/kernel/kernel: $(KERNEL_OBJS) $(KERNEL_BINS) kernel/kernel.ld
 	@echo + ld $@
 	@$(LD) -o $@ $(LDFLAGS) $(KERNEL_OBJS) -T kernel/kernel.ld -b binary $(KERNEL_BINS)
 	@$(OBJDUMP) -S $@ >$@.objdump

@@ -13,9 +13,10 @@
 
 // lib/syscall.c
 void sys_puts(const char *string, size_t len);
-int sys_getc(void);
-envid_t sys_getenvid(void);
+int sys_getc();
+envid_t sys_getenvid();
 int sys_env_destroy(envid_t);
+void sys_yield();
 
 // lib/libmain.c
 extern const char *binaryname;

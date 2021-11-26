@@ -11,6 +11,7 @@
 #include <kernel/monitor.h>
 #include <kernel/picirq.h>
 #include <kernel/pmap.h>
+#include <kernel/spinlock.h>
 #include <kernel/trap.h>
 
 #define ELFHDR ((struct Elf *)0x10000)
@@ -47,6 +48,7 @@ void i386_init() {
 
   // Acquire the big kernel lock before waking up APs
   // Your code here:
+  lock_kernel();
 
   // Starting non-boot CPUs
   boot_aps();
@@ -116,6 +118,7 @@ void mp_main(void) {
   // only one CPU can enter the scheduler at a time!
   //
   // Your code here:
+  lock_kernel();
 
   // Remove this after you finish Exercise 6
   for (;;)

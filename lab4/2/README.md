@@ -169,4 +169,83 @@ void trap(struct Trapframe *tf) {
 
 对于`trap()`的疑问：如果`curenv->env_status == ENV_DYING`，那么它是如何进入`trap()`的？
 
-`curenv`是内核维护的全局变量，是多个 CPU 的共享资源。基于前面实现的 big kernel lock，同一时刻只能有一个 CPU 访问`curenv`。当 CPU0 上的 env 执行完毕后调用`exit() --> ... --> env_destory(curenv)`进行自毁
+目前一个 environment 通过调用`exit() --> sys_env_destory(0)`进行自毁时，是不可能出现`env_destory(e)`把`e->env_status`设置成`ENV_DYING`的情形的——在`env_destory(e)`里`curenv == e`总是成立。这可能需要等到后面涉及*fork*时才会出现，毕竟*zombie*的概念是出现在“子进程先于父进程退出，而父进程又没有回收子进程”的情形里。
+
+另外，对`last_tf`的使用我目前也不太清楚，这与 page fault 有关，后续再分析。
+
+#### Round-Robin Scheduling
+实现`sched_yield()`，位于`kernel/sched.c`:
+
+```c
+// Choose a user environment to run and run it.
+void sched_yield() {
+  // Implement simple round-robin scheduling.
+  //
+  // Search through 'envs' for an ENV_RUNNABLE environment in
+  // circular fashion starting just after the env this CPU was
+  // last running.  Switch to the first such environment found.
+  //
+  // If no envs are runnable, but the environment previously
+  // running on this CPU is still ENV_RUNNING, it's okay to
+  // choose that environment.
+  //
+  // Never choose an environment that's currently running on
+  // another CPU (env_status == ENV_RUNNING). If there are
+  // no runnable environments, simply drop through to the code
+  // below to halt the cpu.
+
+  // LAB 4: Your code here.
+  int i;
+  for (i = 0; i < NENV; i++) {
+    if (envs[i].env_status == ENV_RUNNABLE) {
+      env_run(&envs[i]);
+      panic("env_run should not return");
+    }
+  }
+  if (curenv && curenv->env_status == ENV_RUNNING) {
+    env_run(curenv);
+    panic("env_run should not return");
+  }
+
+  // sched_halt never returns
+  sched_halt();
+}
+```
+
+按照注释实现即可。`sched_halt()`直接从6.828抄过来。`sched_halt()`不能直接无条件唤起 kernel monitor，因为可能还有其他 CPU 上的 environments 在运行，那样可能导致它们阻塞在 big kernel lock 上而无法进行系统调用。
+
+如何调度 user environments? 在哪些位置调用`sched_yield()`?
+
+- BSP, 即 CPU0: `i386_init()`末尾
+- APs, 即 CPU1~*: `mp_main()`末尾
+- `env_destory()`和`trap()`里的几个位置
+
+这样一来，多个 environments 就可以在多个 CPU 上并行执行。如果没有可供调度的 environments 就通过`sched_halt()`启动一个 kernel monitor。
+
+**最后需要实现一个用户层的系统调用`sys_sched()`**，user environments 通过它来主动让出 CPU。用户层接口见`lib/syscall.c`，内核实现见`kernel/syscall.c`:
+
+```c
+// Deschedule current environment and pick a different one to run.
+static void sys_yield() { sched_yield(); }
+```
+
+```c
+// Dispatches to the correct kernel function, passing the arguments.
+int32_t syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5) {
+
+  switch (syscallno) {
+    .......
+    case SYS_yield:
+      sys_yield();
+      return 0;
+    default:
+      return -E_INVAL;
+  }
+}
+```
+
+最后是测试用的 environment, 实现在`user/yield.c`。在`i386_init()`里创建若干个`user_yield`，再`make qemu CPUS=4`就可以了：
+
+<img src="imgs/demo.png" width=700/>
+
+全部 environments 都"exiting gracefully"了。

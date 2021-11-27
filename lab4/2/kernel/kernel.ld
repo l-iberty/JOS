@@ -44,15 +44,14 @@ SECTIONS
 
 	/* The data segment */
 	.data : {
-		*(.data .data.*)
+		*(.data)
 	}
 
 	.bss : {
 		PROVIDE(edata = .);
-		*(.dynbss)
-		*(.bss .bss.*)
-		*(COMMON)
+		*(.bss)
 		PROVIDE(end = .);
+		BYTE(0)
 	}
 
 

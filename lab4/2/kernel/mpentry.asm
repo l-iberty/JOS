@@ -67,7 +67,7 @@ LABEL_PROT_CSEG:
   mov    cr0, eax
 
   ; Switch to the per-cpu stack allocated in boot_aps()
-  mov    esp, mpentry_kstack
+  mov    esp, [mpentry_kstack]
   mov    ebp, 0
 
   ; Call mp_main().  (why the indirect call?)

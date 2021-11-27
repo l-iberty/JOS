@@ -490,6 +490,61 @@ AP 在执行`kernel/mpentry.asm`代码里的代码时，`eip`始终处于`0x7000
 
 这其实就是短跳转和长跳转的区别，不加段选择子是短跳转，加了段选择子就是长跳转，和进入保护模式的那个长跳转是一样的。问题是为什么用寄存器传地址时`jmp/call eax`就是长跳转呢？这应该是指令译码的固有操作。
 
+**另外需要注意**，`mpentry.asm`里的这个地方：
+
+```
+  mov    esp, [mpentry_kstack]
+```
+
+一定要给`mpentry_kstack`加上`[]`。如果不加`[]`：
+
+```
+  mov    esp, mpentry_kstack
+```
+
+会造成什么问题？首先对于`mpentry.asm`而言，`mpentry_kstack`是一个从外部导入的符号，在 intel 汇编中不加`[]`就是直接把符号`mpentry_kstack`的值传入`esp`。“符号的值”指的就是`mpentry_kstack`变量的地址，见`obj/kernel/kernel.sym`：
+
+```
+f0159230 b env_free_list
+f0159234 B mpentry_kstack <--
+f0159238 B panicst
+```
+
+`mov esp, mpentry_kstack`在编译后就变成`mov esp, 0xf0159234`，这样一来后续的栈操作就改变其他全局变量的内容，例如`env_free_list`，从而造成一些奇怪的BUG。
+
+变量`mpentry_kstack`定义在`kernel/init.c`：
+
+```c
+// While boot_aps is booting a given CPU, it communicates the per-core
+// stack pointer that should be loaded by mpentry.S to that CPU in
+// this variable.
+void *mpentry_kstack;
+```
+
+`boot_aps()`会修改它以指向不同 APs 的栈顶：
+
+```c
+// Start the non-boot (AP) processors.
+static void boot_aps(void) {
+  ......
+
+  // Boot each AP one at a time
+  for (c = cpus; c < cpus + ncpu; c++) {
+    if (c == cpus + cpunum())  // We've started already.
+      continue;
+
+    // Tell mpentry.S what stack to use
+    mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
+
+    ......
+  }
+}
+```
+
+这里不会修改变量`mpentry_kstack`的地址(也就是“符号的值”)，只是修改里面的内容。所以在`mpentry.asm`里需要写做`mov esp, [mpentry_kstack]`才能将变量的内容传入`esp`。
+
+**总结：在汇编语言中导入C语言变量时，需要特别注意我们需要的是“符号的值”还是“符号所代表的变量的内容”**
+
 最后，我们成功启动了APs：
 
 <img src="imgs/smp.png" width=700/>

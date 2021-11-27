@@ -38,3 +38,135 @@ uint32_t xchg(volatile uint32_t *addr, uint32_t newval);
 `volatile`关键字是被设计用来修饰被不同线程访问和修改的变量。`volatile`提醒编译器它后面所定义的变量随时都有可能改变，因此编译后的程序每次需要存储或读取这个变量的时候，告诉编译器对该变量不做优化，直接从变量内存地址中读取数据，从而可以提供对特殊地址的稳定访问。如果没有`volatile`关键字，则编译器可能优化读取和存储，可能暂时使用寄存器中的值，如果这个变量由别的程序更新了的话，将出现不一致的现象。
 
 事实上，我们对`addr`地址处的变量存取使用的是`xchg`指令，而且这个C函数是直接用汇编实现的，甚至还不是 GNU 内联汇编！所以即使没有`volatile`关键字编译器也做不了那样的优化，这样做只是为了和`xchg`指令组成双保险。
+
+#### 在适当的位置调用`lock_kernel()`/`unlock_kernel()`
+- In `i386_init()`, acquire the lock before the BSP wakes up the other CPUs.
+- In `mp_main()`, acquire the lock after initializing the AP, and then call `sched_yield()` to start running environments on this AP.
+- In `trap()`, acquire the lock when trapped from user mode. To determine whether a trap happened in user mode or in kernel mode, check the low bits of the `tf_cs`.
+- In `env_run()`, release the lock *right before* switching to user mode. Do not do that too early or too late, otherwise you will experience races or deadlocks.
+
+
+#### 其他的修改
+Lab3 只有一个 user environment，Lab4 则有多个。为此 6.828 悄悄为我们做了一些代码上的修改，目前仅关注这几个地方：
+
+- `struct Env`添加一个成员：
+
+```c
+struct Env {
+  ......
+  int env_cpunum;           // The CPU that the env is running on.
+  ......
+};
+```
+
+每次调用`env_pop_tf()`的时候记录下 CPU：
+
+```c
+void env_pop_tf(struct Trapframe *tf) {
+  // Record the CPU we are running on for user-space debugging
+  curenv->env_cpunum = cpunum();
+
+  _env_pop_tf(tf);
+  panic("iret failed"); /* mostly to placate the compiler */
+}
+```
+
+内核通过`env_run(e) --> curenv = e --> env_pop_tf(&curenv->env_tf)`完成特权级转移，跳入 user environment。所以在`env_pop_tf()`里把执行`curenv`的 CPU 记录下来。
+
+- `env_destory()`
+```c
+//
+// Frees environment e.
+// If e was the current env, then runs a new environment (and does not return
+// to the caller).
+//
+void env_destroy(struct Env *e) {
+  // If e is currently running on other CPUs, we change its state to
+  // ENV_DYING. A zombie environment will be freed the next time it
+  // traps to the kernel.
+  if (e->env_status == ENV_RUNNING && curenv != e) {
+    e->env_status = ENV_DYING;
+    return;
+  }
+
+  env_free(e);
+
+  if (curenv == e) {
+    curenv = NULL;
+    sched_yield();
+  }
+}
+```
+
+- `trap()`
+
+除了我们自己需要添加`lock_kernel()`调用外，还有一些其他的修改：
+```c
+void trap(struct Trapframe *tf) {
+  // The environment may have set DF and some versions
+  // of GCC rely on DF being clear
+  asm volatile("cld" ::: "cc");
+
+  // Halt the CPU if some other CPU has called panic()
+  extern char *panicstr;
+  if (panicstr) {
+    asm volatile("hlt");
+  }
+
+  // Re-aquire the big kernel lock if we were halted in sched_yield()
+  if (xchg(&thiscpu->cpu_status, CPU_STARTED) == CPU_HALTED) {
+    lock_kernel();
+  }
+
+  // Check that interrupts are disabled.  If this assertion
+  // fails, DO NOT be tempted to fix it by inserting a "cli" in
+  // the interrupt path.
+  assert(!(read_eflags() & FL_IF));
+
+  // printf("Incoming TRAP frame at %p\n", tf);
+
+  if ((tf->tf_cs & 3) == 3) {
+    // Trapped from user mode.
+    // Acquire the big kernel lock before doing any
+    // serious kernel work.
+    // LAB 4: Your code here.
+    lock_kernel();
+
+    assert(curenv);
+
+    // Garbage collect if current environment is a zombie
+    if (curenv->env_status == ENV_DYING) {
+      env_free(curenv);
+      curenv = NULL;
+      sched_yield();
+    }
+
+    // Copy trap frame (which is currently on the stack)
+    // into 'curenv->env_tf', so that running the environment
+    // will restart at the trap point.
+    curenv->env_tf = *tf;
+    // The trapframe on the stack should be ignored from here on.
+    tf = &curenv->env_tf;
+  }
+
+  // Record that tf is the last real trapframe so
+  // print_trapframe can print some additional information.
+  last_tf = tf;
+
+  // Dispatch based on what type of trap occurred
+  trap_dispatch(tf);
+
+  // If we made it to this point, then no other environment was
+  // scheduled, so we should return to the current environment
+  // if doing so makes sense.
+  if (curenv && curenv->env_status == ENV_RUNNING) {
+    env_run(curenv);
+  } else {
+    sched_yield();
+  }
+}
+```
+
+对于`trap()`的疑问：如果`curenv->env_status == ENV_DYING`，那么它是如何进入`trap()`的？
+
+`curenv`是内核维护的全局变量，是多个 CPU 的共享资源。基于前面实现的 big kernel lock，同一时刻只能有一个 CPU 访问`curenv`。当 CPU0 上的 env 执行完毕后调用`exit() --> ... --> env_destory(curenv)`进行自毁

@@ -464,6 +464,9 @@ void env_destroy(struct Env *e) {
 // This function does not return.
 //
 void env_pop_tf(struct Trapframe *tf) {
+  // Record the CPU we are running on for user-space debugging
+  curenv->env_cpunum = cpunum();
+
   // asm volatile(
   //     "\tmovl %0,%%esp\n"
   //     "\tpopal\n"

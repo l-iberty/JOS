@@ -3,9 +3,9 @@
 #include <include/assert.h>
 #include <include/elf.h>
 #include <include/error.h>
-#include <include/x86.h>
 #include <include/mmu.h>
 #include <include/string.h>
+#include <include/x86.h>
 #include <kernel/env.h>
 #include <kernel/monitor.h>
 #include <kernel/pmap.h>
@@ -377,7 +377,7 @@ static void load_icode(struct Env *e, uint8_t *binary) {
 //
 void env_create(uint8_t *binary, enum EnvType type) {
   // LAB 3: Your code here.
-  struct Env *e = env_free_list;
+  struct Env *e;
   assert(0 == env_alloc(&e, 0));
   load_icode(e, binary);
   e->env_type = type;

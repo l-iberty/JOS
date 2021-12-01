@@ -57,18 +57,18 @@ void sched_halt() {
   // environments in the system, then drop into the kernel monitor.
   for (i = 0; i < NENV; i++) {
     if ((envs[i].env_status == ENV_RUNNABLE || envs[i].env_status == ENV_RUNNING || envs[i].env_status == ENV_DYING)) {
-      switch (envs[i].env_status) {
-        case ENV_RUNNING:
-          status = "ENV_RUNNING";
-          break;
-        case ENV_RUNNABLE:
-          status = "ENV_RUNNABLE";
-          break;
-        case ENV_DYING:
-          status = "ENV_DYING";
-          break;
-      }
-      printf("env[%d].env_status = %s\n", i, status);
+      // switch (envs[i].env_status) {
+      //   case ENV_RUNNING:
+      //     status = "ENV_RUNNING";
+      //     break;
+      //   case ENV_RUNNABLE:
+      //     status = "ENV_RUNNABLE";
+      //     break;
+      //   case ENV_DYING:
+      //     status = "ENV_DYING";
+      //     break;
+      // }
+      // printf("env[%d].env_status = %s\n", i, status);
       break;
     }
   }

@@ -159,7 +159,7 @@ static int sys_page_alloc(envid_t envid, void *va, int perm) {
     return r;
   }
 
-  if ((uint32_t)va >= UTOP || !PAGE_ALGINED(va)) {
+  if ((uintptr_t)va >= UTOP || !PAGE_ALGINED(va)) {
     return -E_INVAL;
   }
 
@@ -219,11 +219,11 @@ static int sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *d
     return r;
   }
 
-  if ((uint32_t)srcva >= UTOP || !PAGE_ALGINED(srcva)) {
+  if ((uintptr_t)srcva >= UTOP || !PAGE_ALGINED(srcva)) {
     return -E_INVAL;
   }
 
-  if ((uint32_t)dstva >= UTOP || !PAGE_ALGINED(dstva)) {
+  if ((uintptr_t)dstva >= UTOP || !PAGE_ALGINED(dstva)) {
     return -E_INVAL;
   }
 
@@ -266,7 +266,7 @@ static int sys_page_unmap(envid_t envid, void *va) {
     return r;
   }
 
-  if ((uint32_t)va >= UTOP || !PAGE_ALGINED(va)) {
+  if ((uintptr_t)va >= UTOP || !PAGE_ALGINED(va)) {
     return -E_INVAL;
   }
 
@@ -356,17 +356,17 @@ int32_t syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint3
     case SYS_exofork:
       return sys_exofork();
     case SYS_env_set_status:
-      return sys_env_set_status((envid_t)a1, a2);
+      return sys_env_set_status(a1, a2);
     case SYS_env_set_pgfault_upcall:
-      return sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
+      return sys_env_set_pgfault_upcall(a1, (void *)a2);
     case SYS_page_alloc:
-      return sys_page_alloc((envid_t)a1, (void *)a2, a3);
+      return sys_page_alloc(a1, (void *)a2, a3);
     case SYS_page_map:
-      return sys_page_map((envid_t)a1, (void *)a2, (envid_t)a3, (void *)a4, a5);
+      return sys_page_map(a1, (void *)a2, a3, (void *)a4, a5);
     case SYS_page_unmap:
-      return sys_page_unmap((envid_t)a1, (void *)a2);
+      return sys_page_unmap(a1, (void *)a2);
     case SYS_ipc_try_send:
-      return sys_ipc_try_send((envid_t)a1, a2, (void *)a3, a4);
+      return sys_ipc_try_send(a1, a2, (void *)a3, a4);
     case SYS_ipc_recv:
       return sys_ipc_recv((void *)a1);
     default:

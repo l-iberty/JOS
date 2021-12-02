@@ -255,14 +255,16 @@ int32_t syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint3
 **Question 3 & 4**
 
 3. In your implementation of `env_run()` you should have called `lcr3()`. Before and after the call to `lcr3()`, your code makes references (at least it should) to the variable `e`, the argument to `env_run`. Upon loading the `%cr3` register, the addressing context used by the MMU is instantly changed. But a virtual address (namely `e`) has meaning relative to a given address context--the address context specifies the physical address to which the virtual address maps. Why can the pointer `e` be dereferenced both before and after the addressing switch?
-  内存布局参见`include/memlayout.h`。`UTOP`之上的虚拟地址映射在内核和用户进程的页表中都是一致的。`envs`结构体数组的虚拟地址是`UENVS`，在`UTOP`之上，所以`env_run()`的参数`e`在调用`lcr3()`切换页目录前后都映射到相同的物理地址。
+
+  - 内存布局参见`include/memlayout.h`。`UTOP`之上的虚拟地址映射在内核和用户进程的页表中都是一致的。`envs`结构体数组的虚拟地址是`UENVS`，在`UTOP`之上，所以`env_run()`的参数`e`在调用`lcr3()`切换页目录前后都映射到相同的物理地址。
 
 4. Whenever the kernel switches from one environment to another, it must ensure the old environment's registers are saved so they can be restored properly later. Why? Where does this happen?
-  用户进程陷入内核的时候要保存现场。`curenv`指向当前 CPU (获得 kernel lock 进入内核临界区的 CPU) 正在运行的用户进程的`struct Env`结构体。保存现场的代码位于`trap_handler`和`trap()`：
+
+- 用户进程陷入内核的时候要保存现场。`curenv`指向当前 CPU (获得 kernel lock 进入内核临界区的 CPU) 正在运行的用户进程的`struct Env`结构体。保存现场的代码位于`trap_handler`和`trap()`：
 
 - `trap_handler`
-```
-%macro trap_handler 1
+   ```
+  %macro trap_handler 1
     push   %1
     push   ds
     push   es
@@ -274,13 +276,13 @@ int32_t syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint3
 
     push  esp
     call  trap
-%endmacro
-```
+  %endmacro
+  ```
 
 - `trap()`
-```c
+  ```c
   // Copy trap frame (which is currently on the stack)
   // into 'curenv->env_tf', so that running the environment
   // will restart at the trap point.
   curenv->env_tf = *tf;
-```
+  ```

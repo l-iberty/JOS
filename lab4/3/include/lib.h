@@ -26,6 +26,9 @@ int sys_page_unmap(envid_t envid, void *va);
 int sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, int perm);
 int sys_ipc_recv(void *dstva);
 
+// lib/pgfault.c
+void set_pgfault_handler(void (*handler)(struct UTrapframe *utf));
+
 // lib/libmain.c
 extern const char *binaryname;
 extern const volatile struct Env *thisenv;

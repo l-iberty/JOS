@@ -28,4 +28,3 @@ target remote localhost:1234
 # for instructions on building GDB with ELF support.
 echo + symbol-file obj/kernel/kernel\n
 symbol-file obj/kernel/kernel
-#symbol-file obj/user/dumbfork

@@ -4,9 +4,10 @@
 #include <include/types.h>
 
 // lib/vsprintf.c
+void sprintf(char *buf, const char *fmt, ...);
 void vsprintf(char *buf, const char *fmt, va_list ap);
 
-// kernel/printf.c
+// kernel/printf.c & lib/printf.c
 void printf(const char *fmt, ...);
 void vprintf(const char *fmt, va_list ap);
 

@@ -1,6 +1,6 @@
 #include <include/stdarg.h>
+#include <include/stdio.h>
 #include <include/string.h>
-#include <include/types.h>
 
 /**
  * convert integer to string
@@ -22,6 +22,13 @@ static char *itoa(unsigned int val, int base, char **ps) {
   *(*ps) = 0; /* end of string */
 
   return res;
+}
+
+void sprintf(char *buf, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vsprintf(buf, fmt, ap);
+  va_end(ap);
 }
 
 void vsprintf(char *buf, const char *fmt, va_list ap) {

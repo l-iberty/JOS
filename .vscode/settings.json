@@ -1,6 +1,7 @@
 {
 	"files.associations": {
 		"x86.h": "c",
-		"lib.h": "c"
+		"lib.h": "c",
+		"cstdio": "c"
 	}
 }

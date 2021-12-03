@@ -351,7 +351,12 @@ void page_fault_handler(struct Trapframe *tf) {
 
   user_mem_assert(curenv, (const void *)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_P | PTE_U | PTE_W);
 
-  utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+  if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP) {
+    utf = (struct UTrapframe *)(tf->tf_esp - 4 - sizeof(struct UTrapframe));
+  } else {
+    utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+  }
+
   utf->utf_fault_va = fault_va;
   utf->utf_err = T_PGFLT;
   utf->utf_regs = tf->tf_regs;

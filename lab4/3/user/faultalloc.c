@@ -10,7 +10,7 @@ void handler(struct UTrapframe *utf) {
   if ((r = sys_page_alloc(0, ROUNDDOWN(addr, PGSIZE), PTE_P | PTE_U | PTE_W)) < 0) {
     panic("allocating at %08x in page fault handler", addr);
   }
-  sprintf((char *)addr, "this string was faulted in at %08x", addr);
+  sprintf((char *)addr, "this string was faulted in at 0x%08x", addr);
 }
 
 void umain(int argc, char **argv) {

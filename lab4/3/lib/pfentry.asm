@@ -9,15 +9,15 @@
 ; exception stack, and then it pushes a UTrapframe onto our user
 ; exception stack:
 ;
-;	trap-time esp
-;	trap-time eflags
-;	trap-time eip
-;   utf_regs.reg_eax
-;	...
-;	utf_regs.reg_esi
-;	utf_regs.reg_edi
-;	utf_err (error code)
-;	utf_fault_va            <-- %esp
+;   /* +48 */ trap-time esp
+;   /* +44 */ trap-time eflags
+;   /* +40 */ trap-time eip
+;   /* +36 */ utf_regs.reg_eax
+;             ...
+;	/* +12 */ utf_regs.reg_esi
+;   /* +8  */ utf_regs.reg_edi
+;   /* +4  */ utf_err (error code)
+;   /* +0  */ utf_fault_va            <-- %esp
 ;
 ; If this is a recursive fault, the kernel will reserve for us a
 ; blank word above the trap-time esp for scratch work when we unwind
@@ -64,18 +64,28 @@ _pgfault_upcall:
     ; ways as registers become unavailable as scratch space.
     ;
     ; LAB 4: Your code here.
+    mov  eax, [esp + 40]    ; %eax <- trap-time %eip
+    mov  ebx, [esp + 48]    ; %ebx <- trap-time %esp
+    mov  [ebx - 4], eax     ; "push" trap-time %eip onto the trap-time stack
 
     ; Restore the trap-time registers.  After you do this, you
     ; can no longer modify any general-purpose registers.
     ; LAB 4: Your code here.
+    add  esp, 8             ; skip utf_fault_va and utf_err
+    popa                    ; restore general-purpose registers from utf_regs
 
     ; Restore eflags from the stack.  After you do this, you can
     ; no longer use arithmetic operations or anything else that
     ; modifies eflags.
     ; LAB 4: Your code here.
+    add  esp, 4             ; skip utf_eip
+    popf                    ; restore eflags from the stack
 
     ; Switch back to the adjusted trap-time stack.
     ; LAB 4: Your code here.
+    pop  esp                ; pop utf_esp into %esp
 
     ; Return to re-execute the instruction that faulted.
     ; LAB 4: Your code here.
+    sub  esp, 4
+    ret

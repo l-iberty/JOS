@@ -670,33 +670,32 @@ static uintptr_t user_mem_check_addr;
 int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
   // LAB 3: Your code here.
 
-  int i, ret = 0;
+  int i, r = 0;
   uintptr_t addr;
   pde_t *pgtable;
 
   for (i = 0; i < ROUNDUP(len, PGSIZE); i += PGSIZE) {
     if ((env->env_pgdir[PDX(va + i)] & perm) != perm) {
-      ret = -E_FAULT;
+      r = -E_FAULT;
       break;
     }
     pgtable = (pde_t *)PTE_ADDR(KADDR(env->env_pgdir[PDX(va + i)]));
     if ((pgtable[PTX(va + i)] & perm) != perm) {
-      ret = -E_FAULT;
+      r = -E_FAULT;
       break;
     }
   }
 
-  if (ret < 0) {
-    // in order to pass the motherfucking thorny tests!!!
+  if (r < 0) {
     addr = ROUNDDOWN((uintptr_t)va + i, PGSIZE);
-    if (addr == 0) {
-      user_mem_check_addr = (uintptr_t)va + i;
+    if (addr == ROUNDDOWN((uintptr_t)va, PGSIZE)) {
+      user_mem_check_addr = (uintptr_t)va;
     } else {
       user_mem_check_addr = addr;
     }
   }
 
-  return ret;
+  return r;
 }
 
 //

@@ -34,7 +34,8 @@ KERNEL_BINS := user/hello \
 	user/breakpoint \
 	user/yield \
 	user/dumbfork \
-	user/faultalloc
+	user/faultalloc \
+	user/faultallocbad
 
 KERNEL_OBJS := $(patsubst kernel/%.c, $(OBJDIR)/kernel/%.o, $(KERNEL_SRCS))
 KERNEL_OBJS := $(patsubst kernel/%.asm, $(OBJDIR)/kernel/%.o, $(KERNEL_OBJS))

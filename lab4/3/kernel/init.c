@@ -75,6 +75,7 @@ void i386_init() {
   // ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
 
   ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
+  // ENV_CREATE(user_faultallocbad, ENV_TYPE_USER);
 
   // Schedule and run the first user environment!
   sched_yield();

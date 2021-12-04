@@ -14,7 +14,7 @@
 ;   /* +40 */ trap-time eip
 ;   /* +36 */ utf_regs.reg_eax
 ;             ...
-;	/* +12 */ utf_regs.reg_esi
+;   /* +12 */ utf_regs.reg_esi
 ;   /* +8  */ utf_regs.reg_edi
 ;   /* +4  */ utf_err (error code)
 ;   /* +0  */ utf_fault_va            <-- %esp

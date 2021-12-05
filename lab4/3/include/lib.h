@@ -36,6 +36,9 @@ extern const volatile struct Env *thisenv;
 // lib/exit.c
 void exit();
 
+// lib/fork.c
+envid_t fork();
+
 // lib/entry_asm.asm
 extern const volatile struct Env envs[];
 extern const volatile struct PageInfo pages[];

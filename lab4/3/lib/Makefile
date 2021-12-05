@@ -7,7 +7,8 @@ LIB_SRCS := lib/readline.c \
 	lib/exit.c \
 	lib/panic.c \
 	lib/pfentry.asm \
-	lib/pgfault.c
+	lib/pgfault.c \
+	lib/fork.c
 
 LIB_OBJS := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCS))
 LIB_OBJS := $(patsubst lib/%.asm, $(OBJDIR)/lib/%.o, $(LIB_OBJS))

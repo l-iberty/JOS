@@ -8,8 +8,6 @@
 #include <kernel/syscall.h>
 #include <kernel/trap.h>
 
-#define PAGE_ALGINED(x) (PGOFF(x) == 0)
-
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -172,8 +170,7 @@ static int sys_page_alloc(envid_t envid, void *va, int perm) {
     return -E_INVAL;
   }
 
-  perm |= PTE_U | PTE_P;
-  if (perm & ~PTE_SYSCALL) {
+  if ((perm & PTE_P) == 0 || (perm & PTE_U) == 0 || (perm & ~PTE_SYSCALL)) {
     return -E_INVAL;
   }
 
@@ -236,8 +233,7 @@ static int sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *d
     return -E_INVAL;
   }
 
-  perm |= PTE_U | PTE_P;
-  if ((perm & ~PTE_SYSCALL) && (perm & ~PTE_SYSCALL) != PTE_W) {
+  if ((perm & PTE_P) == 0 || (perm & PTE_U) == 0 || (perm & ~PTE_SYSCALL)) {
     return -E_INVAL;
   }
 

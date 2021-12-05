@@ -27,7 +27,7 @@ void set_pgfault_handler(void (*handler)(struct UTrapframe *utf)) {
     // First time through!
     // LAB 4: Your code here.
     if ((r = sys_page_alloc(0, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0) {
-      panic("no space for exception stack");
+      panic("sys_page_alloc");
     }
 
     if ((r = sys_env_set_pgfault_upcall(0, _pgfault_upcall)) < 0) {

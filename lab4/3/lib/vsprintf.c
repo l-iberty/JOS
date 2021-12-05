@@ -44,6 +44,9 @@ void vsprintf(char *buf, const char *fmt, va_list ap) {
 
     reswitch:
       switch (*++fmt) {
+        case 'c':
+          *p++ = va_arg(ap, char);
+          break;
         case 'd':
           base = 10;
           goto number;

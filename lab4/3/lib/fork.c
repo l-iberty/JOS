@@ -24,8 +24,10 @@ static void pgfault(struct UTrapframe *utf) {
 
   // LAB 4: Your code here.
 
+  printf("pafault() invoked. addr: %08x, err: 0x%x, eip: %08x\n", addr, err, utf->utf_eip);
+
   if ((err & FEC_WR) == 0 || (uvpt[PGNUM(addr)] & PTE_COW) == 0) {
-    panic("faulting access\n           fault_va: %08x, err: %x, pte: %03x, eip: %08x", utf->utf_fault_va, err,
+    panic("faulting access\n           fault_va: %08x, err: 0x%x, pte: %03x, eip: %08x", utf->utf_fault_va, err,
           uvpt[PGNUM(addr)], utf->utf_eip);
   }
 
@@ -44,7 +46,7 @@ static void pgfault(struct UTrapframe *utf) {
   if ((r = sys_page_alloc(0, PFTEMP, PTE_P | PTE_U | PTE_W)) < 0) {
     panic("sys_page_alloc");
   }
-  memmove((void *)PFTEMP, addr, PGSIZE);
+  memmove(PFTEMP, addr, PGSIZE);
 
   // Maps the new page at the appropriate address with read/write permissions,
   // in place of the old read-only mapping.
@@ -90,8 +92,7 @@ static int duppage(envid_t envid, void *addr) {
     panic("sys_page_map");
   }
 
-  perm = PTE_PERM(pte) & PTE_SYSCALL;
-  if ((r = sys_page_map(0, addr, 0, addr, perm | PTE_COW)) < 0) {
+  if ((r = sys_page_map(0, addr, 0, addr, (pte & PTE_SYSCALL) | PTE_COW)) < 0) {
     panic("sys_page_map");
   }
 
@@ -119,8 +120,6 @@ envid_t fork(void) {
 
   envid_t envid;
   uintptr_t addr;
-  pde_t pde;
-  pte_t pte;
   int r;
   extern unsigned char end[];
 
@@ -149,16 +148,15 @@ envid_t fork(void) {
   // the parent calls duppage(), which should map the page copy-on-write
   // into the address space of the child and then remap the page copy-on-write
   // in its own address space.
-  for (addr = UTEXT; addr < UXSTACKTOP; addr += PGSIZE) {
-    pde = uvpd[PDX(addr)];
-    if (pde == 0) {
+  for (addr = UTEXT; addr < UTOP; addr += PGSIZE) {
+    if (addr == (uintptr_t)(UXSTACKTOP - PGSIZE)) {
       continue;
     }
-    pte = uvpt[PGNUM(addr)];
-    if ((pte & PTE_W) || (pte & PTE_COW)) {
-      if ((r = duppage(envid, (void *)addr)) < 0) {
-        panic("duppage");
-      }
+    if ((uvpd[PDX(addr)] & PTE_P) == 0) {
+      continue;
+    }
+    if (uvpt[PGNUM(addr)] & PTE_P) {
+      duppage(envid, (void *)addr);
     }
   }
 

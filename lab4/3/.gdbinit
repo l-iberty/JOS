@@ -30,6 +30,6 @@ target remote localhost:1234
 # for instructions on building GDB with ELF support.
 echo + symbol-file obj/kernel/kernel\n
 symbol-file obj/kernel/kernel
-#b kernel/env.c:522
-#condition 1 curenv->env_id=0x1001 && curenv->env_pgfault_upcall != 0
 #symbol-file obj/user/forktree
+b kernel/trap.c:369
+condition 1 curenv->env_tf.tf_eip == 0

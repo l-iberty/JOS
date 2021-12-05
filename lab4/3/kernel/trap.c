@@ -358,7 +358,7 @@ void page_fault_handler(struct Trapframe *tf) {
   }
 
   utf->utf_fault_va = fault_va;
-  utf->utf_err = T_PGFLT;
+  utf->utf_err = tf->tf_err;
   utf->utf_regs = tf->tf_regs;
   utf->utf_eip = tf->tf_eip;
   utf->utf_eflags = tf->tf_eflags;

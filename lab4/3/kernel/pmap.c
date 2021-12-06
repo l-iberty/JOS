@@ -524,16 +524,35 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
     return -E_NO_MEM;
   }
 
-  if (*ppte != 0) {
-    if (PTE_ADDR(*ppte) != page2pa(pp)) {
-      page_remove(pgdir, va);
-      pp->pp_ref++;
-    }
-  } else {
-    pp->pp_ref++;
+  pp->pp_ref++;
+
+  if (*ppte & PTE_P) {
+    page_remove(pgdir, va);
   }
 
-  pgdir[PDX(va)] = PTE_ADDR(pgdir[PDX(va)]) | perm | PTE_P;
+  // if (*ppte != 0) {
+  //   if (PTE_ADDR(*ppte) != page2pa(pp)) {
+  //     page_remove(pgdir, va);
+  //     pp->pp_ref++;
+  //   }
+  // } else {
+  //   pp->pp_ref++;
+  // }
+
+  // 来自 Lab4:
+  // normal stack 和 exception stack 的 PTE 位于同一个页表内, 也就是
+  // 说它们的 PDE 是相同的. Lab4 实现 copy-on-write fork 时 parent 会
+  // 把自己的 normal stack 的写权限(PTE_W)去掉, 取而代之的是 PTE_COW.
+  // 此后当 parent 的栈操作指令尝试向 normal stack 写入时就会触发 #PF,
+  // 然后进行 copy-on-write. 问题就出在这里! page_fault_handler() 需要
+  // 在 exception stack 上面写入一些内容, 而 exception stack 的 PDE 的
+  // PTE_W 属性位已经被去掉了, 就会导致 user_mem_assert() 失败.
+
+  // page_insert 是否需要修改PDE? 实际上并不需要, 而且从 Lab4 的情形
+  // 来说也不能这么做—— PDE 的控制粒度太大了, 如果我们只需要修改单个
+  // page 的权限位, 仅修改 PTE 即可, 不应该牵连到其他的 page.
+
+  // pgdir[PDX(va)] = PTE_ADDR(pgdir[PDX(va)]) | perm | PTE_P;
   *ppte = page2pa(pp) | perm | PTE_P;
 
   return 0;
@@ -706,7 +725,7 @@ int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
 // environment, this function will not return.
 //
 void user_mem_assert(struct Env *env, const void *va, size_t len, int perm) {
-  if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
+  if (user_mem_check(env, va, len, perm | PTE_P | PTE_U) < 0) {
     printf("[%08x] user_mem_check assertion failure for va %08x\n", env->env_id,
            user_mem_check_addr);
     env_destroy(env);  // may not return

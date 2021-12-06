@@ -24,7 +24,7 @@ static void pgfault(struct UTrapframe *utf) {
 
   // LAB 4: Your code here.
 
-  printf("pafault() invoked. addr: %08x, err: 0x%x, eip: %08x\n", addr, err, utf->utf_eip);
+  // printf("pgfault() invoked. addr: %08x, err: 0x%x, eip: %08x\n", addr, err, utf->utf_eip);
 
   if ((err & FEC_WR) == 0 || (uvpt[PGNUM(addr)] & PTE_COW) == 0) {
     panic("faulting access\n           fault_va: %08x, err: 0x%x, pte: %03x, eip: %08x", utf->utf_fault_va, err,
@@ -92,7 +92,7 @@ static int duppage(envid_t envid, void *addr) {
     panic("sys_page_map");
   }
 
-  if ((r = sys_page_map(0, addr, 0, addr, (pte & PTE_SYSCALL) | PTE_COW)) < 0) {
+  if ((r = sys_page_map(0, addr, 0, addr, perm | PTE_COW)) < 0) {
     panic("sys_page_map");
   }
 
@@ -137,7 +137,6 @@ envid_t fork(void) {
     // The copied value of the global variable 'thisenv'
     // is no longer valid (it refers to the parent!).
     // Fix it and return 0.
-    printf("child envid %08x\n", sys_getenvid());
     thisenv = &envs[ENVX(sys_getenvid())];
     return 0;
   }

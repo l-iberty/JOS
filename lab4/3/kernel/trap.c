@@ -349,13 +349,18 @@ void page_fault_handler(struct Trapframe *tf) {
     goto bad;
   }
 
-  user_mem_assert(curenv, (const void *)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_P | PTE_U | PTE_W);
+  // 这样写也没问题, 检查整个 exception stack 的内存. 但是无法通过 user/faultnostack 测试,
+  // 测试程序希望我们给出的 fault va 是一个 0xeebfffXX 这样的地址. 0xeebfffXX 这个地址很
+  // 接近 UXSTACKTOP, 而我们布置 UTrapframe 也是从栈顶开始的, 因为要符合栈从高地址向低地址
+  // 生长的特点. 所以, 测试程序希望我们给出的 fault va 就是 UTrapframe 的起始地址.
+  // user_mem_assert(curenv, (const void *)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_P | PTE_U | PTE_W);
 
   if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP) {
     utf = (struct UTrapframe *)(tf->tf_esp - 4 - sizeof(struct UTrapframe));
   } else {
     utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
   }
+  user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_P | PTE_U | PTE_W);
 
   utf->utf_fault_va = fault_va;
   utf->utf_err = tf->tf_err;

@@ -61,13 +61,18 @@ void page_fault_handler(struct Trapframe *tf) {
     goto bad;
   }
 
-  user_mem_assert(curenv, (const void *)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_P | PTE_U | PTE_W);
+  // 这样写也没问题, 检查整个 exception stack 的内存. 但是无法通过 user/faultnostack 测试,
+  // 测试程序希望我们给出的 fault va 是一个 0xeebfffXX 这样的地址. 0xeebfffXX 这个地址很
+  // 接近 UXSTACKTOP, 而我们布置 UTrapframe 也是从栈顶开始的, 因为要符合栈从高地址向低地址
+  // 生长的特点. 所以, 测试程序希望我们给出的 fault va 就是 UTrapframe 的起始地址.
+  // user_mem_assert(curenv, (const void *)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_P | PTE_U | PTE_W);
 
   if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP) {
     utf = (struct UTrapframe *)(tf->tf_esp - 4 - sizeof(struct UTrapframe));
   } else {
     utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
   }
+  user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_P | PTE_U | PTE_W);
 
   utf->utf_fault_va = fault_va;
   utf->utf_err = T_PGFLT;
@@ -208,7 +213,7 @@ _pgfault_upcall:
 
 **1. Push trap-time `%eip` onto the trap-time stack.**
 
-目前处在 Exception Stack，而 trap-time stack 可能是 Normal Stack 或 Exception Stack——总之不能直接用`push`指令进行这里的"push"。必须从把 trap-time esp 先取到`ebx`里面，再把 trap-time eip 写到`[ebx-4]`——为什么要`-4`？因为`push xxx`可以分解为：
+目前处在 Exception Stack，而 trap-time stack 可能是 Normal Stack 或 Exception Stack——总之不能直接用`push`指令进行这里的"push"。必须把 trap-time esp 先取到`ebx`里面，再把 trap-time eip 写到`[ebx-4]`——为什么要`-4`？因为`push xxx`可以分解为：
 
 ```
  (1) sub esp, 4
@@ -295,3 +300,359 @@ static void sys_puts(const char *s, size_t len) {
 ```
 
 直接对`fault_va`调用`user_mem_assert`进行检查，此时 #PF 尚未被触发，用户程序的 page fault handler 也未被调用，所以检查就会失败。
+
+#### BUG
+
+`user/faultregs`测试失败，测试结果表明从 #PF 返回到用户程序后`eflags`寄存器的值未被正确恢复。回顾`_pgfault_upcall`，可以看到我在`popf`指令之后执行了一条算数指令`sub esp,4`，破坏了`eflags`的值。
+
+解决方法如下：
+
+```
+_pgfault_upcall:
+    ; call the C page fault handler
+    push  esp                     ; function argument: pointer to UTrapframe
+    mov   eax, [_pgfault_handler]
+    call  eax
+    add   esp, 4                  ; pop function argument
+
+    ; Now the C page fault handler has returned and you must return
+    ; to the trap time state.
+    ; Push trap-time %eip onto the trap-time stack.
+    ;
+    ; LAB 4: Your code here.
+    mov  eax, [esp + 40]    ; %eax <- trap-time %eip
+    mov  ebx, [esp + 48]    ; %ebx <- trap-time %esp
+    sub  ebx, 4
+    mov  [ebx], eax         ; "push" trap-time %eip onto the trap-time stack
+    mov  [esp + 48], ebx
+
+    ; Restore the trap-time registers.  After you do this, you
+    ; can no longer modify any general-purpose registers.
+    ; LAB 4: Your code here.
+    add  esp, 8             ; skip utf_fault_va and utf_err
+    popa                    ; restore general-purpose registers from utf_regs
+
+    ; Restore eflags from the stack.  After you do this, you can
+    ; no longer use arithmetic operations or anything else that
+    ; modifies eflags.
+    ; LAB 4: Your code here.
+    add  esp, 4             ; skip utf_eip
+    popf                    ; restore eflags from the stack
+
+    ; Switch back to the adjusted trap-time stack.
+    ; LAB 4: Your code here.
+    pop  esp                ; pop utf_esp into %esp
+
+    ; Return to re-execute the instruction that faulted.
+    ; LAB 4: Your code here.
+    ret
+```
+
+既然不能在`pop esp`之后再`sub esp,4`，那么只能使得`pop esp`之后`esp`就是我们想要的。方法是在`_pgfault_upcall`开始的位置修改`UTrapframe`里的*trap-time esp*。
+
+### Implementing Copy-on-Write Fork
+
+有一点很关键：
+
+*For each writable or copy-on-write page in its address space below `UTOP`, the parent calls `duppage`, which should map the page copy-on-write into the address space of the child and then remap the page copy-on-write in its own address space.*
+
+对于 parent 的 writable page，remap 的时候不是在原有的权限位基础上“或”上`PTE_COW`，而是修改权限位为`PTE_P|PTE_U|PTE_COW`。
+
+*`duppage` sets both PTEs so that the page is not writeable, and to contain `PTE_COW` in the "avail" field...*
+
+这里的“both”指的就是 parent 和 child。
+
+以下是`duppage`的实现：
+
+```c
+static int duppage(envid_t envid, void *addr) {
+  int r;
+
+  // LAB 4: Your code here.
+
+  // Map the page copy-on-write into the address space of the child and
+  // then remap the page copy-on-write in its own address space.
+
+  if (!PAGE_ALGINED(addr)) {
+    panic("addr %08x not page-aligned", addr);
+  }
+
+  pte_t pte = uvpt[PGNUM(addr)];
+  int perm = PTE_P | PTE_U;
+
+  if ((pte & PTE_W) || (pte & PTE_COW)) {
+    perm |= PTE_COW;
+  }
+
+  if ((r = sys_page_map(0, addr, envid, addr, perm)) < 0) {
+    panic("sys_page_map");
+  }
+
+  if ((r = sys_page_map(0, addr, 0, addr, perm | PTE_COW)) < 0) {
+    panic("sys_page_map");
+  }
+
+  return 0;
+}
+```
+
+我们知道，父进程的栈原本是“可写”的（假设父进程的栈所在的 page 是 *Page_A*），当`duppage`把父进程的栈的写权限拿掉之后会发生什么？届时函数执行过程中的栈操作将触发父进程调用`fork`过程中的第一次 #PF，从而执行第一次 Copy-on-Write，*Page_A* 就会有一个可写的副本 *Page_A'*。由于子进程的栈也是映射到 *Page_A*，所以当子进程执行栈操作指令时也会触发 #PF，然后执行 Copy-on-Write 的时候又会产生 *Page_A* 的一个可写副本 *Page_A''*。这样一来 *Page_A* 就被浪费掉了。
+
+6.828 让我们思考：
+
+*The ordering here (i.e., marking a page as COW in the child before marking it in the parent) actually matters! Can you see why? Try to think of a specific case where reversing the order could cause trouble.*
+
+也就说如果像下面这样实现`duppage`会有什么问题：
+
+```c
+static int duppage(envid_t envid, void *addr) {
+  int r;
+
+  // LAB 4: Your code here.
+
+  // Map the page copy-on-write into the address space of the child and
+  // then remap the page copy-on-write in its own address space.
+
+  if (!PAGE_ALGINED(addr)) {
+    panic("addr %08x not page-aligned", addr);
+  }
+
+  pte_t pte = uvpt[PGNUM(addr)];
+  int perm = PTE_P | PTE_U;
+
+  if ((pte & PTE_W) || (pte & PTE_COW)) {
+    perm |= PTE_COW;
+  }
+
+  if ((r = sys_page_map(0, addr, 0, addr, perm | PTE_COW)) < 0) {
+    panic("sys_page_map");
+  }
+
+  if ((r = sys_page_map(0, addr, envid, addr, perm)) < 0) {
+    panic("sys_page_map");
+  }
+
+  return 0;
+}
+```
+
+为了简化分析，先修改`user/forktree.c`，注释掉第二次`forkchild()`调用，否则输出的内容太多：
+
+```c
+void forktree(const char *cur) {
+  printf("%04x: I am '%s'\n", sys_getenvid(), cur);
+
+  forkchild(cur, '0');
+  // forkchild(cur, '1');
+}
+```
+
+运行结果如下：
+
+<img src="imgs/fork_test1.png" width=700/>
+
+触发了 user panic，这不是正常现象。红框标出了第一次 #PF 发生时的`eip`为`00800BEC`，到`obj/user/forktree.objdump`里找到它：
+
+<img src="imgs/fork_test2.png" width=500/>
+
+该指令是`sys_page_map()`返回后的第一条向栈内存写数据的指令，而此时父进程的栈已经没有写权限了，所以触发了#PF，就如前文分析的一样。问题是第二次 #PF 发生时`eip`的值为什么变成0了？
+
+<img src="imgs/fork_test3.png" width=700/>
+
+由于 id 为`00001000`的父进程已经"existing gracefully"并且已被释放，所以这个 #PF 只能来自 id 为`00001001`的子进程。
+
+以下是 gdb 调试分析的过程：
+
+```
+// 会不会是创建子进程时将父进程的上下文拷贝给子进程时出错了？
+// 在 sys_exofork 处打断点看看：
+
+Breakpoint 1, sys_exofork () at kernel/syscall.c:76
+76	  e->env_status = ENV_NOT_RUNNABLE;
+gdb-peda$ p curenv                            <= 查看当前进程(父进程)的 Env 结构
+$1 = (struct Env *) 0xf022e000
+gdb-peda$ p *curenv
+$2 = {
+  env_tf = {
+    tf_regs = {
+      reg_edi = 0x0, 
+      reg_esi = 0x0, 
+      reg_ebp = 0xeebfdf30, 
+      reg_oesp = 0xefffffdc, 
+      reg_ebx = 0x0, 
+      reg_edx = 0x0, 
+      reg_ecx = 0x0, 
+      reg_eax = 0x5
+    }, 
+    tf_es = 0x23, 
+    tf_padding1 = 0x0, 
+    tf_ds = 0x23, 
+    tf_padding2 = 0x0, 
+    tf_trapno = 0x30, 
+    tf_err = 0x0, 
+    tf_eip = 0x800a1a, 
+    tf_cs = 0x1b, 
+    tf_padding3 = 0x0, 
+    tf_eflags = 0x82, 
+    tf_esp = 0xeebfdf04, 
+    tf_ss = 0x23, 
+    tf_padding4 = 0x0
+  }, 
+  env_link = 0xf022e068, 
+  env_id = 0x1000, 
+  env_parent_id = 0x0,
+  env_type = ENV_TYPE_USER, 
+  env_status = 0x3, 
+  env_runs = 0x6, 
+  env_cpunum = 0x0, 
+  env_pgdir = 0xf03bb000, 
+  env_pgfault_upcall = 0x800ea0
+}
+gdb-peda$ n
+=> 0xf0101834 <sys_exofork+67>:	mov    ebx,DWORD PTR [ebp-0x20]
+77	  e->env_tf = curenv->env_tf;            <= 将父进程的上下文拷贝给子进程
+gdb-peda$ n
+=> 0xf0101857 <sys_exofork+102>:	mov    eax,DWORD PTR [ebp-0x20]
+78	  e->env_tf.tf_regs.reg_eax = 0;  // return value is stored in eax
+gdb-peda$ n
+=> 0xf0101861 <sys_exofork+112>:	mov    eax,DWORD PTR [ebp-0x20]
+79	  return e->env_id;
+gdb-peda$ p *e                               <= 查看子进程的 Env 结构
+$3 = {
+  env_tf = {
+    tf_regs = {
+      reg_edi = 0x0, 
+      reg_esi = 0x0, 
+      reg_ebp = 0xeebfdf30, 
+      reg_oesp = 0xefffffdc, 
+      reg_ebx = 0x0, 
+      reg_edx = 0x0, 
+      reg_ecx = 0x0, 
+      reg_eax = 0x0
+    }, 
+    tf_es = 0x23, 
+    tf_padding1 = 0x0, 
+    tf_ds = 0x23, 
+    tf_padding2 = 0x0, 
+    tf_trapno = 0x30, 
+    tf_err = 0x0, 
+    tf_eip = 0x800a1a, 
+    tf_cs = 0x1b, 
+    tf_padding3 = 0x0, 
+    tf_eflags = 0x82, 
+    tf_esp = 0xeebfdf04, 
+    tf_ss = 0x23, 
+    tf_padding4 = 0x0
+  }, 
+  env_link = 0xf022e0d0, 
+  env_id = 0x1001, 
+  env_parent_id = 0x1000, 
+  env_type = ENV_TYPE_USER, 
+  env_status = 0x4, 
+  env_runs = 0x0, 
+  env_cpunum = 0x0, 
+  env_pgdir = 0xf03b1000, 
+  env_pgfault_upcall = 0x0
+}
+
+// 可以看到，子进程的 tf_eip 是正确的值：0x800a1a
+// 那么它是什么时候变为0的？打一个硬件断点监控子进程的 tf_eip 何时被修改为0：
+
+gdb-peda$ p &e->env_tf.tf_eip
+$4 = (uintptr_t *) 0xf022e098
+gdb-peda$ watch *(int*)0xf022e098
+Hardware watchpoint 2: *(int*)0xf022e098
+gdb-peda$ c
+Continuing.
+=> 0xf010640a <trap+275>:	rep movs DWORD PTR es:[edi],DWORD PTR ds:[esi]
+
+Hardware watchpoint 2: *(int*)0xf022e098
+
+Old value = 0x800a1a
+New value = 0x0
+0xf010640a in trap (tf=0xefffffbc) at kernel/trap.c:276      <= 此时子进程的 tf_eip 被修改为0
+276	    curenv->env_tf = *tf;
+gdb-peda$ p *tf
+$5 = {
+  tf_regs = {
+    reg_edi = 0x0, 
+    reg_esi = 0x0, 
+    reg_ebp = 0xeebfdf30, 
+    reg_oesp = 0xefffffdc, 
+    reg_ebx = 0x0, 
+    reg_edx = 0x0, 
+    reg_ecx = 0x0, 
+    reg_eax = 0x0
+  }, 
+  tf_es = 0x23, 
+  tf_padding1 = 0x0, 
+  tf_ds = 0x23, 
+  tf_padding2 = 0x0, 
+  tf_trapno = 0xe, 
+  tf_err = 0x4, 
+  tf_eip = 0x0,           <= 为什么 tf->tf_eip 会是0？
+  tf_cs = 0x1b, 
+  tf_padding3 = 0x0, 
+  tf_eflags = 0x82, 
+  tf_esp = 0xeebfdf08, 
+  tf_ss = 0x23, 
+  tf_padding4 = 0x0
+}
+gdb-peda$ p *curenv      <= 查看被修改后的子进程 Env 结构体
+$6 = {
+  env_tf = {
+    tf_regs = {
+      reg_edi = 0x0, 
+      reg_esi = 0x0, 
+      reg_ebp = 0xeebfdf30, 
+      reg_oesp = 0xefffffdc, 
+      reg_ebx = 0x0, 
+      reg_edx = 0x0, 
+      reg_ecx = 0x0, 
+      reg_eax = 0x0
+    }, 
+    tf_es = 0x23, 
+    tf_padding1 = 0x0, 
+    tf_ds = 0x23, 
+    tf_padding2 = 0x0, 
+    tf_trapno = 0xe, 
+    tf_err = 0x4, 
+    tf_eip = 0x0,
+    tf_cs = 0x1b,
+    tf_padding3 = 0x0,
+    tf_eflags = 0x82,
+    tf_esp = 0xeebfdf04,
+    tf_ss = 0x23,
+    tf_padding4 = 0x0
+  },
+  env_link = 0xf022e0d0,
+  env_id = 0x1001,
+  env_parent_id = 0x1000, 
+  env_type = ENV_TYPE_USER, 
+  env_status = 0x3, 
+  env_runs = 0x1, 
+  env_cpunum = 0x0, 
+  env_pgdir = 0xf03b1000, 
+  env_pgfault_upcall = 0x800ea0
+}
+gdb-peda$ bt
+#0  0xf010640a in trap (tf=0xefffffbc) at kernel/trap.c:276
+#1  0xf0106784 in page_fault ()
+#2  0xefffffbc in ?? ()
+Backtrace stopped: previous frame inner to this frame (corrupt stack?)
+gdb-peda$ 
+```
+
+最后，`trap()`被调用时`tf->tf_eip`已经为0了. `tf->tf_eip`是发生中断时由处理器压入栈的. 所以可以断定, 子进程在执行过程中`eip`意外地变为0.
+
+哪些指令可以修改`eip`? 可以猜测是`ret`, 那么就和栈有关了. 应该是子进程的栈被父进程修改了. 
+
+考虑以下情形：对于 Writable Page A, 如果父进程先把自己对它的权限变成 COW, 再将 Page A 以 COW 权限映射给子进程, 在两次操作间隔内如果父进程向 Page A 写入, 就会触发#PF, 引发 COW 流程, 导致父进程的地址映射关系发生改变：假如原来的地址 VA 映射到 Page A, COW 流程之后 VA 就会映射到 Page A'. 在这之后如果再去按照原本的想法将 Page A 以 COW 权限映射给子进程, 这可以成功吗? 肯定是不行的, 因为 VA 已经不再映射到 Page A 了, 而是映射到 Page A', 那里面已经包含了父进程的所做的修改——子进程是不应该看到这些修改的, 子进程希望在自己的地址空间内 VA 仍是映射到 Page A 而不是 Page A'.
+
+如果上述的 Writable Page A 是父进程的栈, 就容易知道为什么子进程的`eip`会跑到`0x00000000`了：当`esp`所指向的内存里的内容是`0x00000000`, 此时执行`ret`指令会发生什么呢，不言而喻。
+
+`duppage`的注释里有一个问题：
+
+*Exercise: Why do we need to mark ours copy-on-write again if it was already copy-on-write at the beginning of this function?*
+
+意思是说，如果父进程的一个 page 已经被标记为 COW，那么是否还需要重新映射一遍？肯定是需要的，因为不能确定父进程的这个 page 除了 COW 属性外是否没有写权限. 重新映射的目的就是要拿掉父进程对 page 的写权限，以免影响到子进程，从而导致前面的那个问题。

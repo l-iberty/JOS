@@ -475,37 +475,37 @@ gdb-peda$ p *curenv
 $2 = {
   env_tf = {
     tf_regs = {
-      reg_edi = 0x0, 
-      reg_esi = 0x0, 
-      reg_ebp = 0xeebfdf30, 
-      reg_oesp = 0xefffffdc, 
-      reg_ebx = 0x0, 
-      reg_edx = 0x0, 
-      reg_ecx = 0x0, 
+      reg_edi = 0x0,
+      reg_esi = 0x0,
+      reg_ebp = 0xeebfdf30,
+      reg_oesp = 0xefffffdc,
+      reg_ebx = 0x0,
+      reg_edx = 0x0,
+      reg_ecx = 0x0,
       reg_eax = 0x5
-    }, 
-    tf_es = 0x23, 
-    tf_padding1 = 0x0, 
-    tf_ds = 0x23, 
-    tf_padding2 = 0x0, 
-    tf_trapno = 0x30, 
-    tf_err = 0x0, 
-    tf_eip = 0x800a1a, 
-    tf_cs = 0x1b, 
-    tf_padding3 = 0x0, 
-    tf_eflags = 0x82, 
-    tf_esp = 0xeebfdf04, 
-    tf_ss = 0x23, 
+    },
+    tf_es = 0x23,
+    tf_padding1 = 0x0,
+    tf_ds = 0x23,
+    tf_padding2 = 0x0,
+    tf_trapno = 0x30,
+    tf_err = 0x0,
+    tf_eip = 0x800a1a,
+    tf_cs = 0x1b,
+    tf_padding3 = 0x0,
+    tf_eflags = 0x82,
+    tf_esp = 0xeebfdf04,
+    tf_ss = 0x23,
     tf_padding4 = 0x0
-  }, 
-  env_link = 0xf022e068, 
-  env_id = 0x1000, 
+  },
+  env_link = 0xf022e068,
+  env_id = 0x1000,
   env_parent_id = 0x0,
-  env_type = ENV_TYPE_USER, 
-  env_status = 0x3, 
-  env_runs = 0x6, 
-  env_cpunum = 0x0, 
-  env_pgdir = 0xf03bb000, 
+  env_type = ENV_TYPE_USER,
+  env_status = 0x3,
+  env_runs = 0x6,
+  env_cpunum = 0x0,
+  env_pgdir = 0xf03bb000,
   env_pgfault_upcall = 0x800ea0
 }
 gdb-peda$ n
@@ -521,37 +521,37 @@ gdb-peda$ p *e                               <= 查看子进程的 Env 结构
 $3 = {
   env_tf = {
     tf_regs = {
-      reg_edi = 0x0, 
-      reg_esi = 0x0, 
-      reg_ebp = 0xeebfdf30, 
-      reg_oesp = 0xefffffdc, 
-      reg_ebx = 0x0, 
-      reg_edx = 0x0, 
-      reg_ecx = 0x0, 
+      reg_edi = 0x0,
+      reg_esi = 0x0,
+      reg_ebp = 0xeebfdf30,
+      reg_oesp = 0xefffffdc,
+      reg_ebx = 0x0,
+      reg_edx = 0x0,
+      reg_ecx = 0x0,
       reg_eax = 0x0
-    }, 
-    tf_es = 0x23, 
-    tf_padding1 = 0x0, 
-    tf_ds = 0x23, 
-    tf_padding2 = 0x0, 
-    tf_trapno = 0x30, 
-    tf_err = 0x0, 
-    tf_eip = 0x800a1a, 
-    tf_cs = 0x1b, 
-    tf_padding3 = 0x0, 
-    tf_eflags = 0x82, 
-    tf_esp = 0xeebfdf04, 
-    tf_ss = 0x23, 
+    },
+    tf_es = 0x23,
+    tf_padding1 = 0x0,
+    tf_ds = 0x23,
+    tf_padding2 = 0x0,
+    tf_trapno = 0x30,
+    tf_err = 0x0,
+    tf_eip = 0x800a1a,
+    tf_cs = 0x1b,
+    tf_padding3 = 0x0,
+    tf_eflags = 0x82,
+    tf_esp = 0xeebfdf04,
+    tf_ss = 0x23,
     tf_padding4 = 0x0
-  }, 
-  env_link = 0xf022e0d0, 
-  env_id = 0x1001, 
-  env_parent_id = 0x1000, 
-  env_type = ENV_TYPE_USER, 
-  env_status = 0x4, 
-  env_runs = 0x0, 
-  env_cpunum = 0x0, 
-  env_pgdir = 0xf03b1000, 
+  },
+  env_link = 0xf022e0d0,
+  env_id = 0x1001,
+  env_parent_id = 0x1000,
+  env_type = ENV_TYPE_USER,
+  env_status = 0x4,
+  env_runs = 0x0,
+  env_cpunum = 0x0,
+  env_pgdir = 0xf03b1000,
   env_pgfault_upcall = 0x0
 }
 
@@ -575,48 +575,48 @@ New value = 0x0
 gdb-peda$ p *tf
 $5 = {
   tf_regs = {
-    reg_edi = 0x0, 
-    reg_esi = 0x0, 
-    reg_ebp = 0xeebfdf30, 
-    reg_oesp = 0xefffffdc, 
-    reg_ebx = 0x0, 
-    reg_edx = 0x0, 
-    reg_ecx = 0x0, 
+    reg_edi = 0x0,
+    reg_esi = 0x0,
+    reg_ebp = 0xeebfdf30,
+    reg_oesp = 0xefffffdc,
+    reg_ebx = 0x0,
+    reg_edx = 0x0,
+    reg_ecx = 0x0,
     reg_eax = 0x0
-  }, 
-  tf_es = 0x23, 
-  tf_padding1 = 0x0, 
-  tf_ds = 0x23, 
-  tf_padding2 = 0x0, 
-  tf_trapno = 0xe, 
-  tf_err = 0x4, 
+  },
+  tf_es = 0x23,
+  tf_padding1 = 0x0,
+  tf_ds = 0x23,
+  tf_padding2 = 0x0,
+  tf_trapno = 0xe,
+  tf_err = 0x4,
   tf_eip = 0x0,           <= 为什么 tf->tf_eip 会是0？
-  tf_cs = 0x1b, 
-  tf_padding3 = 0x0, 
-  tf_eflags = 0x82, 
-  tf_esp = 0xeebfdf08, 
-  tf_ss = 0x23, 
+  tf_cs = 0x1b,
+  tf_padding3 = 0x0,
+  tf_eflags = 0x82,
+  tf_esp = 0xeebfdf08,
+  tf_ss = 0x23,
   tf_padding4 = 0x0
 }
 gdb-peda$ p *curenv      <= 查看被修改后的子进程 Env 结构体
 $6 = {
   env_tf = {
     tf_regs = {
-      reg_edi = 0x0, 
-      reg_esi = 0x0, 
-      reg_ebp = 0xeebfdf30, 
-      reg_oesp = 0xefffffdc, 
-      reg_ebx = 0x0, 
-      reg_edx = 0x0, 
-      reg_ecx = 0x0, 
+      reg_edi = 0x0,
+      reg_esi = 0x0,
+      reg_ebp = 0xeebfdf30,
+      reg_oesp = 0xefffffdc,
+      reg_ebx = 0x0,
+      reg_edx = 0x0,
+      reg_ecx = 0x0,
       reg_eax = 0x0
-    }, 
-    tf_es = 0x23, 
-    tf_padding1 = 0x0, 
-    tf_ds = 0x23, 
-    tf_padding2 = 0x0, 
-    tf_trapno = 0xe, 
-    tf_err = 0x4, 
+    },
+    tf_es = 0x23,
+    tf_padding1 = 0x0,
+    tf_ds = 0x23,
+    tf_padding2 = 0x0,
+    tf_trapno = 0xe,
+    tf_err = 0x4,
     tf_eip = 0x0,
     tf_cs = 0x1b,
     tf_padding3 = 0x0,
@@ -627,12 +627,12 @@ $6 = {
   },
   env_link = 0xf022e0d0,
   env_id = 0x1001,
-  env_parent_id = 0x1000, 
-  env_type = ENV_TYPE_USER, 
-  env_status = 0x3, 
-  env_runs = 0x1, 
-  env_cpunum = 0x0, 
-  env_pgdir = 0xf03b1000, 
+  env_parent_id = 0x1000,
+  env_type = ENV_TYPE_USER,
+  env_status = 0x3,
+  env_runs = 0x1,
+  env_cpunum = 0x0,
+  env_pgdir = 0xf03b1000,
   env_pgfault_upcall = 0x800ea0
 }
 gdb-peda$ bt
@@ -640,12 +640,12 @@ gdb-peda$ bt
 #1  0xf0106784 in page_fault ()
 #2  0xefffffbc in ?? ()
 Backtrace stopped: previous frame inner to this frame (corrupt stack?)
-gdb-peda$ 
+gdb-peda$
 ```
 
 最后，`trap()`被调用时`tf->tf_eip`已经为0了. `tf->tf_eip`是发生中断时由处理器压入栈的. 所以可以断定, 子进程在执行过程中`eip`意外地变为0.
 
-哪些指令可以修改`eip`? 可以猜测是`ret`, 那么就和栈有关了. 应该是子进程的栈被父进程修改了. 
+哪些指令可以修改`eip`? 可以猜测是`ret`, 那么就和栈有关了. 应该是子进程的栈被父进程修改了.
 
 考虑以下情形：对于 Writable Page A, 如果父进程先把自己对它的权限变成 COW, 再将 Page A 以 COW 权限映射给子进程, 在两次操作间隔内如果父进程向 Page A 写入, 就会触发#PF, 引发 COW 流程, 导致父进程的地址映射关系发生改变：假如原来的地址 VA 映射到 Page A, COW 流程之后 VA 就会映射到 Page A'. 在这之后如果再去按照原本的想法将 Page A 以 COW 权限映射给子进程, 这可以成功吗? 肯定是不行的, 因为 VA 已经不再映射到 Page A 了, 而是映射到 Page A', 那里面已经包含了父进程的所做的修改——子进程是不应该看到这些修改的, 子进程希望在自己的地址空间内 VA 仍是映射到 Page A 而不是 Page A'.
 
@@ -656,3 +656,55 @@ gdb-peda$
 *Exercise: Why do we need to mark ours copy-on-write again if it was already copy-on-write at the beginning of this function?*
 
 意思是说，如果父进程的一个 page 已经被标记为 COW，那么是否还需要重新映射一遍？肯定是需要的，因为不能确定父进程的这个 page 除了 COW 属性外是否没有写权限. 重新映射的目的就是要拿掉父进程对 page 的写权限，以免影响到子进程，从而导致前面的那个问题。
+
+#### 插曲: `page_insert()`的BUG
+实现 copy-on-write fork 时发现`page_insert()`存在BUG，修改如下：
+
+```c
+int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm) {
+  // Fill this function in
+  pte_t *ppte;
+
+  ppte = pgdir_walk(pgdir, va, true);
+  if (ppte == NULL) {
+    return -E_NO_MEM;
+  }
+
+  pp->pp_ref++;
+
+  if (*ppte & PTE_P) {
+    page_remove(pgdir, va);
+  }
+
+  // if (*ppte != 0) {
+  //   if (PTE_ADDR(*ppte) != page2pa(pp)) {
+  //     page_remove(pgdir, va);
+  //     pp->pp_ref++;
+  //   }
+  // } else {
+  //   pp->pp_ref++;
+  // }
+
+  // 来自 Lab4:
+  // normal stack 和 exception stack 的 PTE 位于同一个页表内, 也就是
+  // 说它们的 PDE 是相同的. Lab4 实现 copy-on-write fork 时 parent 会
+  // 把自己的 normal stack 的写权限(PTE_W)去掉, 取而代之的是 PTE_COW.
+  // 此后当 parent 的栈操作指令尝试向 normal stack 写入时就会触发 #PF,
+  // 然后进行 copy-on-write. 问题就出在这里! page_fault_handler() 需要
+  // 在 exception stack 上面写入一些内容, 而 exception stack 的 PDE 的
+  // PTE_W 属性位已经被去掉了, 就会导致 user_mem_assert() 失败.
+
+  // page_insert 是否需要修改PDE? 实际上并不需要, 而且从 Lab4 的情形
+  // 来说也不能这么做—— PDE 的控制粒度太大了, 如果我们只需要修改单个
+  // page 的权限位, 仅修改 PTE 即可, 不应该牵连到其他的 page.
+
+  // pgdir[PDX(va)] = PTE_ADDR(pgdir[PDX(va)]) | perm | PTE_P;
+  *ppte = page2pa(pp) | perm | PTE_P;
+
+  return 0;
+}
+```
+
+这样的修改也符合注释的提示：
+
+*Corner-case hint: Make sure to consider what happens when the same pp is re-inserted at the same virtual address in the same pgdir. However, try not to distinguish this case in your code, as this frequently leads to subtle bugs; there's an elegant way to handle everything in one code path.*

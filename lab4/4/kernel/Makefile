@@ -41,6 +41,7 @@ KERNEL_BINS := user/hello \
 	user/faultbadhandler \
 	user/faultevilhandler \
 	user/forktree \
+	user/stresssched \
 	user/spin
 
 KERNEL_OBJS := $(patsubst kernel/%.c, $(OBJDIR)/kernel/%.o, $(KERNEL_SRCS))

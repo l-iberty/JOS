@@ -164,6 +164,29 @@ int env_alloc(struct Env **newenv_store, envid_t parent_id) {
 }
 ```
 
+4. uncomment the `sti` instruction in `sched_halt()`
+
+```c
+void sched_halt() {
+  ......
+  // Reset stack pointer, enable interrupts and then halt.
+  asm volatile(
+      "movl $0, %%ebp\n"
+      "movl %0, %%esp\n"
+      "pushl $0\n"
+      "pushl $0\n"
+      // Uncomment the following line after completing exercise 13
+      "sti\n"
+      "1:\n"
+      "hlt\n"
+      "jmp 1b\n"
+      :
+      : "a"(thiscpu->cpu_ts.ts_esp0));
+}
+```
+
+为什么要在`sched_halt()`里开中断？如果不这么做，执行`sched_halt()`的 CPU 将陷在死循环中无法接收时钟中断，也就无法调度用户线程，无法通过后面的`user/stresssched`测试——该测试希望在多处理器模式下每个 CPU 都至少调度一个用户进程。
+
 After doing this exercise, if you run your kernel with any test program that runs for a non-trivial length of time (e.g., `spin`), you should see the kernel print trap frames for hardware interrupts. While interrupts are now enabled in the processor, JOS isn't yet handling them, so you should see it misattribute each interrupt to the currently running user environment and destroy it. Eventually it should run out of environments to destroy and drop into the monitor.
 
 <img src="imgs/ex13.png" width=700/>
@@ -173,3 +196,31 @@ After doing this exercise, if you run your kernel with any test program that run
 #### Handling Clock Interrupts
 
 **Exercise 14.** Modify the kernel's `trap_dispatch()` function so that it calls `sched_yield()` to find and run a different environment whenever a clock interrupt takes place.
+
+```c
+static void trap_dispatch(struct Trapframe *tf) {
+  ......
+  // Handle clock interrupts. Don't forget to acknowledge the
+  // interrupt using lapic_eoi() before calling the scheduler!
+  // LAB 4: Your code here
+  if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+    lapic_eoi();
+    sched_yield();
+  }
+  ......
+}
+```
+
+You should now be able to get the `user/spin` test to work: the parent environment should fork off the child, `sys_yield()` to it a couple times but in each case regain control of the CPU after one time slice, and finally kill the child environment and terminate gracefully.
+
+<img src="imgs/spin.png" width=700/>
+
+现在我们用 4 个 CPU 测试`user/stressched`：
+
+<img src="imgs/stresssched.png" width=700/>
+
+可以看到每个 CPU 都用上了。
+
+**最后还有一个关键问题：** In JOS, we make a key simplification compared to xv6 Unix. External device interrupts are always disabled when in the kernel.
+
+JOS 在执行中断处理例程的过程中，中断是被关闭的。CPU 进入中断后会自动关中断。之前在写 Orange's 的时候，在内核中执行中断处理例程前会用`sti`开中断，然后再`cli`关中断。JOS 不支持中断重入。如果可能的话我会研究一下如何让 JOS 支持中断重入。

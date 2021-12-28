@@ -83,7 +83,9 @@ void i386_init() {
 
   // ENV_CREATE(user_forktree, ENV_TYPE_USER);
 
-  ENV_CREATE(user_spin, ENV_TYPE_USER);
+  // ENV_CREATE(user_spin, ENV_TYPE_USER);
+
+  ENV_CREATE(user_stresssched, ENV_TYPE_USER);
 
   // Schedule and run the first user environment!
   sched_yield();

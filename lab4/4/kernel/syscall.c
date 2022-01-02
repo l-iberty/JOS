@@ -166,7 +166,7 @@ static int sys_page_alloc(envid_t envid, void *va, int perm) {
     return r;
   }
 
-  if ((uintptr_t)va >= UTOP || !PAGE_ALGINED(va)) {
+  if ((uintptr_t)va >= UTOP || !PAGE_ALIGNED(va)) {
     return -E_INVAL;
   }
 
@@ -225,11 +225,11 @@ static int sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *d
     return r;
   }
 
-  if ((uintptr_t)srcva >= UTOP || !PAGE_ALGINED(srcva)) {
+  if ((uintptr_t)srcva >= UTOP || !PAGE_ALIGNED(srcva)) {
     return -E_INVAL;
   }
 
-  if ((uintptr_t)dstva >= UTOP || !PAGE_ALGINED(dstva)) {
+  if ((uintptr_t)dstva >= UTOP || !PAGE_ALIGNED(dstva)) {
     return -E_INVAL;
   }
 
@@ -271,7 +271,7 @@ static int sys_page_unmap(envid_t envid, void *va) {
     return r;
   }
 
-  if ((uintptr_t)va >= UTOP || !PAGE_ALGINED(va)) {
+  if ((uintptr_t)va >= UTOP || !PAGE_ALIGNED(va)) {
     return -E_INVAL;
   }
 

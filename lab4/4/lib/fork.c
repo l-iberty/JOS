@@ -77,7 +77,7 @@ static int duppage(envid_t envid, void *addr) {
   // Map the page copy-on-write into the address space of the child and
   // then remap the page copy-on-write in its own address space.
 
-  if (!PAGE_ALGINED(addr)) {
+  if (!PAGE_ALIGNED(addr)) {
     panic("addr %08x not page-aligned", addr);
   }
 

@@ -79,7 +79,7 @@
 #define PTE_PERM(pte) (((physaddr_t)(pte)) & 0xFFF)
 
 // Check if x is page-aligned
-#define PAGE_ALGINED(x) (PGOFF(x) == 0)
+#define PAGE_ALIGNED(x) (PGOFF(x) == 0)
 
 // Control Register flags
 #define CR0_PE 0x00000001  // Protection Enable

@@ -186,6 +186,48 @@ static int sys_page_alloc(envid_t envid, void *va, int perm) {
   return 0;
 }
 
+static int sys_page_map_ex(envid_t srcenvid, void *srcva, envid_t dstenvid, void *dstva, int perm, bool checkperm) {
+  struct Env *srcenv, *dstenv;
+  struct PageInfo *pp;
+  pte_t *srcpte;
+  int r;
+
+  if ((r = envid2env(srcenvid, &srcenv, checkperm)) < 0) {
+    return r;
+  }
+
+  if ((r = envid2env(dstenvid, &dstenv, checkperm)) < 0) {
+    return r;
+  }
+
+  if ((uintptr_t)srcva >= UTOP || !PAGE_ALIGNED(srcva)) {
+    return -E_INVAL;
+  }
+
+  if ((uintptr_t)dstva >= UTOP || !PAGE_ALIGNED(dstva)) {
+    return -E_INVAL;
+  }
+
+  perm |= PTE_U | PTE_P;
+  if ((perm & ~PTE_SYSCALL) && (perm & ~PTE_SYSCALL) != PTE_W) {
+    return -E_INVAL;
+  }
+
+  if ((pp = page_lookup(srcenv->env_pgdir, srcva, &srcpte)) == NULL) {
+    return -E_NO_MEM;
+  }
+
+  if ((perm & PTE_W) && (*srcpte & PTE_W) == 0) {
+    return -E_INVAL;
+  }
+
+  if ((r = page_insert(dstenv->env_pgdir, pp, dstva, perm)) < 0) {
+    return r;
+  }
+
+  return 0;
+}
+
 // Map the page of memory at 'srcva' in srcenvid's address space
 // at 'dstva' in dstenvid's address space with permission 'perm'.
 // Perm has the same restrictions as in sys_page_alloc, except
@@ -212,44 +254,7 @@ static int sys_page_map(envid_t srcenvid, void *srcva, envid_t dstenvid, void *d
 
   // LAB 4: Your code here.
 
-  struct Env *srcenv, *dstenv;
-  struct PageInfo *pp;
-  pte_t *srcpte;
-  int r;
-
-  if ((r = envid2env(srcenvid, &srcenv, true)) < 0) {
-    return r;
-  }
-
-  if ((r = envid2env(dstenvid, &dstenv, true)) < 0) {
-    return r;
-  }
-
-  if ((uintptr_t)srcva >= UTOP || !PAGE_ALIGNED(srcva)) {
-    return -E_INVAL;
-  }
-
-  if ((uintptr_t)dstva >= UTOP || !PAGE_ALIGNED(dstva)) {
-    return -E_INVAL;
-  }
-
-  if ((perm & PTE_P) == 0 || (perm & PTE_U) == 0 || (perm & ~PTE_SYSCALL)) {
-    return -E_INVAL;
-  }
-
-  if ((pp = page_lookup(srcenv->env_pgdir, srcva, &srcpte)) == NULL) {
-    return -E_NO_MEM;
-  }
-
-  if ((perm & PTE_W) && (*srcpte & PTE_W) == 0) {
-    return -E_INVAL;
-  }
-
-  if ((r = page_insert(dstenv->env_pgdir, pp, dstva, perm)) < 0) {
-    return r;
-  }
-
-  return 0;
+  return sys_page_map_ex(srcenvid, srcva, dstenvid, dstva, perm, true);
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -320,7 +325,37 @@ static int sys_page_unmap(envid_t envid, void *va) {
 //		address space.
 static int sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm) {
   // LAB 4: Your code here.
-  panic("sys_ipc_try_send not implemented");
+
+  struct Env *e;
+  int r;
+
+  if ((r = envid2env(envid, &e, false)) < 0) {
+    return r;
+  }
+
+  if (!e->env_ipc_recving) {
+    return -E_IPC_NOT_RECV;
+  }
+
+  if ((uintptr_t)srcva < UTOP) {
+    if (!PAGE_ALIGNED(srcva)) {
+      return -E_INVAL;
+    }
+    if (e->env_ipc_dstva != 0) {
+      if ((r = sys_page_map_ex(0, srcva, envid, e->env_ipc_dstva, perm, false)) < 0) {
+        return r;
+      }
+    }
+  }
+
+  e->env_ipc_recving = false;
+  e->env_ipc_from = curenv->env_id;
+  e->env_ipc_value = value;
+  e->env_ipc_perm = (uintptr_t)srcva < UTOP ? perm : 0;
+  e->env_tf.tf_regs.reg_eax = 0;
+  e->env_status = ENV_RUNNABLE;
+
+  return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -336,7 +371,20 @@ static int sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned
 //	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
 static int sys_ipc_recv(void *dstva) {
   // LAB 4: Your code here.
-  panic("sys_ipc_recv not implemented");
+
+  if ((uintptr_t)dstva < UTOP) {
+    if (!PAGE_ALIGNED(dstva)) {
+      return -E_INVAL;
+    }
+  }
+
+  curenv->env_ipc_recving = true;
+  curenv->env_ipc_from = 0;
+  curenv->env_ipc_dstva = dstva;
+  curenv->env_status = ENV_NOT_RUNNABLE;
+
+  sched_yield();
+  return 0;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.

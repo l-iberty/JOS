@@ -262,3 +262,162 @@ void sched_yield() {
 - `curenv`是内核代码里的变量，定义在`kernel/env.h`: `#define curenv (thiscpu->cpu_env)`。表示当前 CPU 上运行的用户进程。根据进入临界区的 CPU 的不同，`curenv`将指向不同的`Env`结构，因为一个用户进程不会同时运行在多个 CPU 上。
 - `thisenv`是用户代码里的变量，定义在`lib/libmain.c`: `const volatile struct Env *thisenv;`。在`libmain`函数里完成初始化: `thisenv = &envs[ENVX(sys_getenvid())];`。fork 产生子进程后，在子进程的地址空间内需要修正`thisenv`指向子进程自己。所以在不同用户进程的代码里`thisenv`也是不同的——每个进程的地址空间里都有一个名为`thisenv`的变量，指向各自进程的`Env`结构。
 - 在用户进程里调用`sys_getenvid`，内核返回的是`curenv->end_id`，这与直接从`thisenv->env_id`得到的值是一致的。`thisenv`相当于给用户进程提供了一个访问自身`Env`结构的途径。如果一个用户进程暂时没有获得 CPU，虽然在它自己的地址空间内`thisenv`依然指向它自己，但`curenv`就不再指向这个进程了。只有当一个用户进程获得 CPU 时才满足`thisenv == curenv`。
+
+### Challenge! sfork
+
+#### 实现 sfork
+
+`sfork`的实现很简单，只要把除了栈之外的页面按照同样的权限映射到子进程地址空间内就行:
+
+```c
+// Challenge!
+int sfork(void) {
+  envid_t envid;
+  uintptr_t addr;
+  int r;
+  extern unsigned char end[];
+  extern void _pgfault_upcall(void);
+
+  // The parent installs pgfault() as the C-level page fault handler,
+  // using the set_pgfault_handler() function you implemented above.
+  set_pgfault_handler(pgfault);
+
+  // The parent calls sys_exofork() to create a child environment.
+  envid = sys_exofork();
+  if (envid < 0) {
+    panic("sys_exofork: %e", envid);
+  }
+  if (envid == 0) {
+    // We're the child.
+    // The copied value of the global variable 'thisenv'
+    // is no longer valid (it refers to the parent!).
+    // Fix it and return 0.
+    thisenv = &envs[ENVX(sys_getenvid())];
+    return 0;
+  }
+
+  // We're the parent.
+
+  // For each writable or copy-on-write page in its address space below UTOP,
+  // the parent calls duppage(), which should map the page copy-on-write
+  // into the address space of the child and then remap the page copy-on-write
+  // in its own address space.
+  for (addr = UTEXT; addr < UTOP; addr += PGSIZE) {
+    if (addr == (uintptr_t)(UXSTACKTOP - PGSIZE)) {
+      continue;
+    }
+    if ((uvpd[PDX(addr)] & PTE_P) == 0) {
+      continue;
+    }
+    if (uvpt[PGNUM(addr)] & PTE_P) {
+      if (addr == (uintptr_t)(USTACKTOP - PGSIZE)) {
+        duppage(envid, (void *)addr);
+      } else {
+        sduppage(envid, (void *)addr);
+      }
+    }
+  }
+
+  // The parent sets the user page fault entrypoint for the child to
+  // look like its own.
+  //
+  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
+  // ^
+  // I don't know why it doesn't work. Fuck!
+  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
+    panic("sys_env_set_pgfault_upcall: %e", r);
+  }
+
+  // Allocate a fresh page in the child for the exception stack.
+  if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0) {
+    panic("sys_page_alloc: %e", r);
+  }
+
+  // The child is now ready to run, so the parent marks it runnable.
+  if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
+    panic("sys_env_set_status: %e", r);
+  }
+
+  return envid;
+}
+```
+
+对于栈，还是和以前一样调用`duppage`处理；对于其他页面则调用`sduppage`处理:
+
+```c
+static int sduppage(envid_t envid, void *addr) {
+  int r;
+
+  // Map the page into the address space of the child
+  // without changing the permissions.
+
+  if (!PAGE_ALIGNED(addr)) {
+    panic("addr %08x not page-aligned", addr);
+  }
+
+  pte_t pte = uvpt[PGNUM(addr)];
+  int perm = PTE_P | PTE_U;
+
+  if (pte & PTE_W) {
+    perm |= PTE_W;
+  }
+
+  if ((r = sys_page_map(0, addr, envid, addr, perm | PTE_W)) < 0) {
+    panic("sys_page_map: %e", r);
+  }
+
+  return 0;
+}
+```
+
+这里遇到一个奇怪的 BUG, 在`sfork/fork`的这个地方:
+
+```c
+  // The parent sets the user page fault entrypoint for the child to
+  // look like its own.
+  //
+  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
+  // ^
+  // I don't know why it doesn't work. Fuck!
+  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
+    panic("sys_env_set_pgfault_upcall: %e", r);
+  }
+```
+
+如果像以前那样写，使用`thisenv->env_pgfault_upcall`，在修复`thisenv`之前极易在`user/sforktree`测试中出现错误:
+
+<img src="imgs/buggy_sforktree.png" width=700>
+
+在 github 上找到的众多实现里都是声明外部变量`extern void _pgfault_upcall(void);`然后使用之。但是当修复`thisenv`之后，两种写法都没问题。
+
+#### 修复 thisenv
+
+由于父子进程的数据段是共享的，`thisenv`是位于数据段内的全局变量。为了在不同进程中把`thisenv`指向各自的`Env`结构，就需要加以修改。我参考了[https://phimos.github.io/2020/04/29/6828-lab4/](https://phimos.github.io/2020/04/29/6828-lab4/)。
+
+在`lib/libmain.c`里定义一个`Env`结构的指针数组`penvs`并初始化，并删去`thisenv`的定义:
+
+```c
+const volatile struct Env *penvs[NENV];
+
+void libmain(int argc, char **argv) {
+  ......
+  int i;
+  for (i = 0; i < NENV; i++) {
+    penvs[i] = &envs[i];
+  }
+  ......
+}
+```
+
+在`include/lib.h`里声明`penvs`变量，并把`thisenv`定义为宏:
+
+```c
+extern const volatile struct Env *penvs[NENV];
+#define thisenv penvs[ENVX(sys_getenvid())]
+```
+
+为什么不直接定义`thisenv`为`#define thisenv &envs[ENVX(sys_getenvid())]`? 因为在`lib/fork.c`里需要的是能被赋值的左值`thisenv`，而`&envs[ENVX(sys_getenvid())]`是右值。
+
+完成上述修改后可以通过`user/pingpongs`测试:
+
+<img src="imgs/pingpongs.png" width=700>

@@ -41,6 +41,7 @@ KERNEL_BINS := user/hello \
 	user/faultbadhandler \
 	user/faultevilhandler \
 	user/forktree \
+	user/sforktree \
 	user/stresssched \
 	user/spin \
 	user/pingpong \

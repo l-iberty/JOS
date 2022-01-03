@@ -99,6 +99,30 @@ static int duppage(envid_t envid, void *addr) {
   return 0;
 }
 
+static int sduppage(envid_t envid, void *addr) {
+  int r;
+
+  // Map the page into the address space of the child
+  // without changing the permissions.
+
+  if (!PAGE_ALIGNED(addr)) {
+    panic("addr %08x not page-aligned", addr);
+  }
+
+  pte_t pte = uvpt[PGNUM(addr)];
+  int perm = PTE_P | PTE_U;
+
+  if (pte & PTE_W) {
+    perm |= PTE_W;
+  }
+
+  if ((r = sys_page_map(0, addr, envid, addr, perm | PTE_W)) < 0) {
+    panic("sys_page_map: %e", r);
+  }
+
+  return 0;
+}
+
 //
 // User-level fork with copy-on-write.
 // Set up our page fault handler appropriately.
@@ -122,6 +146,7 @@ envid_t fork(void) {
   uintptr_t addr;
   int r;
   extern unsigned char end[];
+  extern void _pgfault_upcall(void);
 
   // The parent installs pgfault() as the C-level page fault handler,
   // using the set_pgfault_handler() function you implemented above.
@@ -161,7 +186,11 @@ envid_t fork(void) {
 
   // The parent sets the user page fault entrypoint for the child to
   // look like its own.
-  if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
+  //
+  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
+  // ^
+  // I don't know why it doesn't work. Fuck!
+  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
     panic("sys_env_set_pgfault_upcall");
   }
 
@@ -180,6 +209,71 @@ envid_t fork(void) {
 
 // Challenge!
 int sfork(void) {
-  panic("sfork not implemented");
-  return -E_INVAL;
+  envid_t envid;
+  uintptr_t addr;
+  int r;
+  extern unsigned char end[];
+  extern void _pgfault_upcall(void);
+
+  // The parent installs pgfault() as the C-level page fault handler,
+  // using the set_pgfault_handler() function you implemented above.
+  set_pgfault_handler(pgfault);
+
+  // The parent calls sys_exofork() to create a child environment.
+  envid = sys_exofork();
+  if (envid < 0) {
+    panic("sys_exofork: %e", envid);
+  }
+  if (envid == 0) {
+    // We're the child.
+    // The copied value of the global variable 'thisenv'
+    // is no longer valid (it refers to the parent!).
+    // Fix it and return 0.
+    thisenv = &envs[ENVX(sys_getenvid())];
+    return 0;
+  }
+
+  // We're the parent.
+
+  // For each writable or copy-on-write page in its address space below UTOP,
+  // the parent calls duppage(), which should map the page copy-on-write
+  // into the address space of the child and then remap the page copy-on-write
+  // in its own address space.
+  for (addr = UTEXT; addr < UTOP; addr += PGSIZE) {
+    if (addr == (uintptr_t)(UXSTACKTOP - PGSIZE)) {
+      continue;
+    }
+    if ((uvpd[PDX(addr)] & PTE_P) == 0) {
+      continue;
+    }
+    if (uvpt[PGNUM(addr)] & PTE_P) {
+      if (addr == (uintptr_t)(USTACKTOP - PGSIZE)) {
+        duppage(envid, (void *)addr);
+      } else {
+        sduppage(envid, (void *)addr);
+      }
+    }
+  }
+
+  // The parent sets the user page fault entrypoint for the child to
+  // look like its own.
+  //
+  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
+  // ^
+  // I don't know why it doesn't work. Fuck!
+  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
+    panic("sys_env_set_pgfault_upcall: %e", r);
+  }
+
+  // Allocate a fresh page in the child for the exception stack.
+  if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0) {
+    panic("sys_page_alloc: %e", r);
+  }
+
+  // The child is now ready to run, so the parent marks it runnable.
+  if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
+    panic("sys_env_set_status: %e", r);
+  }
+
+  return envid;
 }

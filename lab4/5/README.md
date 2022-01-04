@@ -276,7 +276,6 @@ int sfork(void) {
   uintptr_t addr;
   int r;
   extern unsigned char end[];
-  extern void _pgfault_upcall(void);
 
   // The parent installs pgfault() as the C-level page fault handler,
   // using the set_pgfault_handler() function you implemented above.
@@ -321,10 +320,7 @@ int sfork(void) {
   // The parent sets the user page fault entrypoint for the child to
   // look like its own.
   //
-  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
-  // ^
-  // I don't know why it doesn't work. Fuck!
-  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
+  if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
     panic("sys_env_set_pgfault_upcall: %e", r);
   }
 
@@ -369,26 +365,6 @@ static int sduppage(envid_t envid, void *addr) {
   return 0;
 }
 ```
-
-这里遇到一个奇怪的 BUG, 在`sfork/fork`的这个地方:
-
-```c
-  // The parent sets the user page fault entrypoint for the child to
-  // look like its own.
-  //
-  // if ((r = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) < 0) {
-  // ^
-  // I don't know why it doesn't work. Fuck!
-  if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
-    panic("sys_env_set_pgfault_upcall: %e", r);
-  }
-```
-
-如果像以前那样写，使用`thisenv->env_pgfault_upcall`，在修复`thisenv`之前极易在`user/sforktree`测试中出现错误:
-
-<img src="imgs/buggy_sforktree.png" width=700>
-
-在 github 上找到的众多实现里都是声明外部变量`extern void _pgfault_upcall(void);`然后使用之。但是当修复`thisenv`之后，两种写法都没问题。
 
 #### 修复 thisenv
 

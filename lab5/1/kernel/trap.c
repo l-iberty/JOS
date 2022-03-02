@@ -150,18 +150,15 @@ void trap_init_percpu(void) {
   //
   // LAB 4: Your code here:
 
-  int i;
-  for (i = 0; i < NCPU; i++) {
-    // Setup a TSS so that we get the right stack
-    // when we trap to the kernel.
-    cpus[i].cpu_ts.ts_esp0 = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
-    cpus[i].cpu_ts.ts_ss0 = GD_KD;
-    cpus[i].cpu_ts.ts_iomb = sizeof(struct Taskstate);
+  // Setup a TSS so that we get the right stack
+  // when we trap to the kernel.
+  thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - cpunum() * (KSTKSIZE + KSTKGAP);
+  thiscpu->cpu_ts.ts_ss0 = GD_KD;
+  thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
-    // Initialize the TSS slot of the gdt.
-    gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t)(&cpus[i].cpu_ts), sizeof(struct Taskstate) - 1, 0);
-    gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
-  }
+  // Initialize the TSS slot of the gdt.
+  gdt[(GD_TSS0 >> 3) + cpunum()] = SEG16(STS_T32A, (uint32_t)(&thiscpu->cpu_ts), sizeof(struct Taskstate) - 1, 0);
+  gdt[(GD_TSS0 >> 3) + cpunum()].sd_s = 0;
 
   // Load the TSS selector
   ltr(GD_TSS0 + (cpunum() << 3));

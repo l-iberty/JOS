@@ -31,11 +31,9 @@ void set_pgfault_handler(void (*handler)(struct UTrapframe *utf));
 
 // lib/libmain.c or lib/entry.asm
 extern const char *binaryname;
-// extern const volatile struct Env *thisenv;
+extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
-extern const volatile struct Env *penvs[NENV];
 extern const volatile struct PageInfo pages[];
-#define thisenv penvs[ENVX(sys_getenvid())]
 
 // lib/exit.c
 void exit();

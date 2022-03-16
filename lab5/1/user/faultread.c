@@ -1,1 +1,0 @@
-void umain(int argc, char **argv) { int x = *(int *)0; }

@@ -51,7 +51,7 @@ kernel/entrypgdir.c:27:5: note: (near initialization for ‘entry_pgdir[960]’)
 kernel/Makefile:28: recipe for target 'obj/kernel/entrypgdir.o' failed
 ```
 
-3. 在开启分页后，`[0,4MB)`这块虚拟内存被设置为只读，ring0向这块内存写入。原因是`kernel/entry.asm`通过`cr0`开启了“写保护”。这就导致了一个问题，如何向CGA显存空间`[0xB0000, 0xBFFFF]`写数据，`printf`不能工作了吗？解决方法是将虚拟地址加上`KERNBASE`。虚拟内存`[KERNBASE,KERNBASE+4MB)`是可写的，而它映射到物理内存`[0,4MB)`。所以`kernel/console.c`的`cga_init()`这样初始化`crt_buf`：
+3. 在开启分页后，`[0,4MB)`这块虚拟内存被设置为只读，ring0无法在该虚拟地址范围内进行内存写入。原因是`kernel/entry.asm`通过`cr0`开启了“写保护”——如果没有开启写保护，那么即使页表属性位为只读，ring0依然可以写入。这就导致了一个问题，如何向CGA显存空间`[0xB0000, 0xBFFFF]`写数据，`printf`不能工作了吗？解决方法是将虚拟地址加上`KERNBASE`。虚拟内存`[KERNBASE,KERNBASE+4MB)`是可写的，而它映射到物理内存`[0,4MB)`。所以`kernel/console.c`的`cga_init()`这样初始化`crt_buf`：
 ```c
 crt_buf = (uint16_t *)(CGA_BASE + KERNBASE);
 ```
